@@ -1,0 +1,29 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node / React Native
+node_modules/
+
+# Environment
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large ML files
+*.h5
+*.pkl
+*.pt
+*.joblib
+*.onnx
+
+# Large datasets
+*.csv
+
+# model folders
+model_results_smote/
+
+# zipped files
+*.zip

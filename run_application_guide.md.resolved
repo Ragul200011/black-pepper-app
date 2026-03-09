@@ -1,0 +1,63 @@
+# 🚀 Black Pepper AI Fullstack Run Guide
+
+This guide provides simple, step-by-step instructions on how to start both the Node.js backend API and the React Native frontend application.
+
+---
+
+## 🏗️ 1. Start the Backend (API + AI Models)
+
+The backend is responsible for fetching live sensor data from ThingSpeak and passing it to the Hybrid Ensemble Machine Learning model (`.pkl`), which runs on Python.
+
+* **Prerequisites**: Ensure you have Python installed and Node.js installed.
+
+1. Open your terminal (Command Prompt or PowerShell).
+2. Navigate into the new `backend` folder:
+   ```bash
+   cd c:\Users\VICTUS\Documents\mena\ragul'\backend
+   ```
+3. Run the Node.js server:
+   ```bash
+   node server.js
+   ```
+
+**✅ Success Check:** 
+You should see:
+```
+🌱 Smart Black Pepper Guardian Backend running on http://localhost:5001
+📡 Listening for requests at /api/soil-analysis (ThingSpeak -> AI)
+```
+
+---
+
+## 📱 2. Start the Frontend (Mobile App / Expo)
+
+The frontend is a React Native app that displays the dashboard, live soil data, and dynamic graphs, making HTTP requests to the backend API (`http://10.0.2.2:5001`).
+
+* **Prerequisites**: You must have **Android Studio** open and an **Android Emulator** running on your screen.
+
+1. Open a **NEW**, separate terminal window (leave the backend running in the first one).
+2. Navigate to your app's directory:
+   ```bash
+   cd c:\Users\VICTUS\Documents\mena\ragul'\black-preer-mobile-main
+   ```
+3. Clear the Expo cache and start targeting Android (especially helpful if Metro Bundler issues pop up):
+   ```bash
+   npm run android -c
+   ```
+   *(Alternatively, `npx expo start --android` also works once dependencies are solid.)*
+
+**✅ Success Check:**
+You should see Expo bundle the Javascript, and the app will automatically open inside your active Android Emulator.
+
+---
+
+## 🧪 3. Testing the Live Soil Analysis
+
+1. Once the App opens in the Emulator, tap on **"🌱 Recommend Fertilizer"** on the Home Screen.
+2. The app will navigate to the new [SoilAnalysisScreen](file:///c:/Users/VICTUS/Documents/mena/ragul%27/black-preer-mobile-main/src/screens/SoilAnalysisScreen.js#20-170).
+3. Give it a couple of seconds to make the API call. You will immediately see:
+   - Your live ThingSpeak values (`Moisture: 27.2%`, `Phosphorus: 9 mg/kg`, etc.).
+   - The AI's **Final Consensus** ("Healthy" or "Needs Attention").
+   - A live animating graph showing your N-P-K nutrient levels updating every 10 seconds.
+   
+*(Ensure your Node.js backend terminal remains open, as the App contacts it constantly to pull fresh data!)*
