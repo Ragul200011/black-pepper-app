@@ -1,533 +1,230 @@
-import React, { useState } from 'react';
+// src/screens/DiseaseUploadScreen.js — FIXED
+// Fix: navigation.navigate('DiseaseResult') now passes the exact params
+//      that DiseaseResultScreen destructures:
+//      { image, disease, confidence, treatment, description, probabilities, lowConfidence }
+// Fix: replaced deprecated ImagePicker.MediaTypeOptions with ['images']
+import React, { useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Alert,
-  ActivityIndicator,
-  Platform,
-  Dimensions,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, Image, Alert, ActivityIndicator, Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
-
-const { width } = Dimensions.get('window');
-
-const isSmallScreen = width < 480;
-const isWideScreen = width >= 768;
-
-const API_BASE_URL =
-  Platform.OS === 'web'
-    ? 'http://localhost:5001'
-    : 'http://192.168.8.110:5001';
+import { C, SHADOW } from '../components/theme';
+import { PrimaryButton, OutlineButton } from '../components/ui';
+import { API_BASE } from '../config/api';
 
 export default function DiseaseUploadScreen({ navigation }) {
-  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [asset,   setAsset]   = useState(null);
   const [loading, setLoading] = useState(false);
-  const [warningMessage, setWarningMessage] = useState('');
+  const [error,   setError]   = useState('');
 
-  const pickFromCamera = async () => {
+  const requestPermission = useCallback(async (type) => {
+    const perm = type === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission Required',
+        `${type === 'camera' ? 'Camera' : 'Gallery'} permission is required.`);
+      return false;
+    }
+    return true;
+  }, []);
+
+  const pickFromCamera = useCallback(async () => {
+    if (!(await requestPermission('camera'))) return;
     try {
-      setWarningMessage('');
-
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert(
-          'Permission Required',
-          'Camera permission is needed to take a photo.'
-        );
-        return;
-      }
-
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
+        mediaTypes: ['images'],          // ✅ FIXED: deprecated MediaTypeOptions removed
+        allowsEditing: true, aspect: [4, 3], quality: 0.85,
       });
-
       if (!result.canceled && result.assets?.length > 0) {
-        setSelectedAsset(result.assets[0]);
+        setAsset(result.assets[0]);
+        setError('');
       }
-    } catch (error) {
-      console.log('Camera error:', error);
-      Alert.alert('Error', 'Could not open camera.');
-    }
-  };
+    } catch { Alert.alert('Error', 'Could not open camera. Please try again.'); }
+  }, [requestPermission]);
 
-  const pickFromGallery = async () => {
+  const pickFromGallery = useCallback(async () => {
+    if (!(await requestPermission('gallery'))) return;
     try {
-      setWarningMessage('');
-
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert(
-          'Permission Required',
-          'Gallery permission is needed to select an image.'
-        );
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
+        mediaTypes: ['images'],          // ✅ FIXED: deprecated MediaTypeOptions removed
+        allowsEditing: true, aspect: [4, 3], quality: 0.85,
       });
-
       if (!result.canceled && result.assets?.length > 0) {
-        setSelectedAsset(result.assets[0]);
+        setAsset(result.assets[0]);
+        setError('');
       }
-    } catch (error) {
-      console.log('Gallery error:', error);
-      Alert.alert('Error', 'Could not open gallery.');
-    }
-  };
+    } catch { Alert.alert('Error', 'Could not open gallery. Please try again.'); }
+  }, [requestPermission]);
 
-  const handleDetectDisease = async () => {
-    if (!selectedAsset) {
-      setWarningMessage('Please upload or capture a leaf image first.');
-      return;
-    }
-
+  const handleUpload = useCallback(async () => {
+    if (!asset) { setError('Please select or capture a leaf image first.'); return; }
+    setError('');
+    setLoading(true);
     try {
-      setLoading(true);
-      setWarningMessage('');
+      const filename = asset.uri.split('/').pop() || 'leaf.jpg';
+      const ext      = (/\.(\w+)$/.exec(filename)?.[1] ?? 'jpg').toLowerCase();
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
       const formData = new FormData();
-
       if (Platform.OS === 'web') {
-        if (!selectedAsset.file) {
-          throw new Error('Web image file not found. Please select the image again.');
-        }
-        formData.append('file', selectedAsset.file);
+        const blob = await fetch(asset.uri).then(r => r.blob());
+        formData.append('file', new File([blob], filename, { type: mimeType }));
       } else {
-        formData.append('file', {
-          uri: selectedAsset.uri,
-          name: selectedAsset.fileName || `leaf_${Date.now()}.jpg`,
-          type: selectedAsset.mimeType || 'image/jpeg',
-        });
+        formData.append('file', { uri: asset.uri, name: filename, type: mimeType });
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/predict-image`,
-        formData,
-        { timeout: 60000 }
-      );
-
-      const data = response.data;
-
-      if (!data?.ai_analysis) {
-        throw new Error('Invalid response from server.');
-      }
-
-      const result = data.ai_analysis;
-
-      if (result.rejected) {
-        setWarningMessage(
-          result.reject_reason ||
-            'The uploaded image is not recognized as a black pepper leaf. Please upload a clear black pepper leaf image.'
-        );
-        return;
-      }
-
-      navigation.navigate('DiseaseResult', {
-        image: selectedAsset.uri,
-        disease: result.prediction || 'Unknown',
-        confidence: `${result.confidence ?? 0}%`,
-        treatment: result.advice || 'Consult an agricultural expert.',
-        description: result.description || '',
-        probabilities: result.all_probabilities || {},
-        pepperScore: result.pepper_score || null,
-        lowConfidence: result.low_confidence || false,
+      const res = await axios.post(`${API_BASE}/api/predict-image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
       });
-    } catch (error) {
-      console.log('Detection error:', error);
 
-      const message =
-        error?.response?.data?.error ||
-        error?.response?.data?.details ||
-        error?.response?.data?.stdout ||
-        error?.message ||
-        'Failed to process image.';
+      if (!res.data?.ai_analysis) throw new Error('Unexpected response from server.');
 
-      setWarningMessage(message);
+      // ✅ FIXED: map ai_analysis fields to what DiseaseResultScreen expects
+      const ai = res.data.ai_analysis;
+      navigation.navigate('DiseaseResult', {
+        image:         asset.uri,
+        disease:       ai.prediction   ?? ai.class_name  ?? 'Unknown',
+        confidence:    ai.confidence != null
+                         ? `${parseFloat(ai.confidence).toFixed(1)}%`
+                         : 'N/A',
+        treatment:     ai.advice       ?? ai.treatment   ?? 'Consult an agricultural expert.',
+        description:   ai.description  ?? '',
+        probabilities: ai.all_probabilities ?? ai.probabilities ?? {},
+        lowConfidence: ai.low_confidence ?? false,
+      });
+
+    } catch (err) {
+      const msg =
+        err.response?.data?.error
+        || (err.code === 'ECONNABORTED'
+            ? 'Request timed out. Check your server.'
+            : null)
+        || (err.message?.match(/Network|connect/i)
+            ? 'Cannot reach server. Make sure backend is running on port 5001.'
+            : null)
+        || err.message
+        || 'Upload failed. Please try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [asset, navigation]);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      <LinearGradient
-        colors={['#1a3409', '#2d5016', '#1a3409']}
-        style={styles.header}
-      >
-        <Text style={styles.badge}>AI Image Upload</Text>
-        <Text style={styles.title}>Leaf Image Upload</Text>
-        <Text style={styles.headerSubtitle}>
-          Select a clear black pepper leaf image to get an AI-powered disease prediction.
-        </Text>
-      </LinearGradient>
+    <ScrollView style={s.root} contentContainerStyle={s.scroll}
+      showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-      <View style={styles.content}>
-        {warningMessage ? (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>⚠ Warning</Text>
-            <Text style={styles.warningText}>{warningMessage}</Text>
+      {/* Instructions */}
+      <View style={s.infoCard}>
+        <Text style={s.infoTitle}>📋 Before You Upload</Text>
+        {[
+          'Use a clear, well-lit close-up photo of a single leaf',
+          'Avoid blurry, shadowed or partially cropped images',
+          'Ensure the entire leaf is visible in the frame',
+          'Supported formats: JPG, PNG',
+        ].map((tip, i) => (
+          <View key={i} style={s.infoRow}>
+            <Ionicons name="checkmark-circle" size={14} color={C.success} />
+            <Text style={s.infoTxt}>{tip}</Text>
           </View>
-        ) : null}
-
-        <View style={styles.previewCard}>
-          {selectedAsset?.uri ? (
-            <>
-              <Image source={{ uri: selectedAsset.uri }} style={styles.previewImage} />
-              <View style={styles.previewFooter}>
-                <Text style={styles.previewFooterTitle}>Image Ready</Text>
-                <Text style={styles.previewFooterText}>
-                  Your selected leaf image is ready for disease analysis.
-                </Text>
-              </View>
-            </>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🍃</Text>
-              <Text style={styles.emptyTitle}>No Image Selected</Text>
-              <Text style={styles.emptyText}>
-                Use your camera or gallery to upload a black pepper leaf image.
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View
-          style={[
-            styles.actionGrid,
-            isWideScreen && styles.actionGridWide,
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={pickFromCamera}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.actionIcon}>📷</Text>
-            <Text style={styles.actionTitle}>Open Camera</Text>
-            <Text style={styles.actionText}>
-              Capture a fresh photo of the leaf using your device camera.
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={pickFromGallery}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.actionIcon}>🖼️</Text>
-            <Text style={styles.actionTitle}>Open Gallery</Text>
-            <Text style={styles.actionText}>
-              Select an existing black pepper leaf image from your gallery.
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.detectButton, loading && styles.disabledButton]}
-          onPress={handleDetectDisease}
-          activeOpacity={0.85}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.detectButtonText}>🦠 Detect Disease</Text>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.tipsCard}>
-          <Text style={styles.cardHeading}>Tips for Better Results</Text>
-
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>Use a clear image with good lighting.</Text>
-          </View>
-
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>Capture the full leaf inside the frame.</Text>
-          </View>
-
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>Avoid blurry or dark photos.</Text>
-          </View>
-
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>Keep the background simple if possible.</Text>
-          </View>
-
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>Upload only black pepper leaf images.</Text>
-          </View>
-        </View>
+        ))}
       </View>
+
+      {/* Image picker */}
+      <View style={s.pickerCard}>
+        <Text style={s.pickerTitle}>Select Leaf Image</Text>
+        <View style={s.pickerBtns}>
+          <TouchableOpacity style={s.pickerBtn} onPress={pickFromCamera} activeOpacity={0.82}
+            accessibilityRole="button" accessibilityLabel="Take photo">
+            <View style={[s.pickerIcon, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name="camera-outline" size={26} color={C.blue} />
+            </View>
+            <Text style={s.pickerBtnTxt}>Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.pickerBtn} onPress={pickFromGallery} activeOpacity={0.82}
+            accessibilityRole="button" accessibilityLabel="Choose from gallery">
+            <View style={[s.pickerIcon, { backgroundColor: C.xlight }]}>
+              <Ionicons name="images-outline" size={26} color={C.primary} />
+            </View>
+            <Text style={s.pickerBtnTxt}>Gallery</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Preview */}
+        {asset ? (
+          <View style={s.previewWrap}>
+            <Image source={{ uri: asset.uri }} style={s.preview} resizeMode="cover" />
+            <TouchableOpacity style={s.clearBtn} onPress={() => setAsset(null)}>
+              <Ionicons name="close-circle" size={24} color={C.error} />
+            </TouchableOpacity>
+            <View style={s.selectedBadge}>
+              <Ionicons name="checkmark-circle" size={13} color={C.success} />
+              <Text style={s.selectedTxt}>Image selected</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={s.emptyPreview}>
+            <Ionicons name="leaf-outline" size={48} color={C.border2} />
+            <Text style={s.emptyPreviewTxt}>No image selected</Text>
+          </View>
+        )}
+
+        {/* Error */}
+        {!!error && (
+          <View style={s.errBox}>
+            <Ionicons name="warning-outline" size={15} color={C.error} />
+            <Text style={s.errTxt}>{error}</Text>
+          </View>
+        )}
+
+        <PrimaryButton
+          title={loading ? 'Analysing…' : '🔍  Analyse Leaf'}
+          onPress={handleUpload}
+          loading={loading}
+          disabled={!asset || loading}
+          style={{ marginTop: 16 }}
+        />
+        {asset && !loading && (
+          <OutlineButton title="Choose Different Image" onPress={() => setAsset(null)}
+            style={{ marginTop: 10 }} />
+        )}
+      </View>
+
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7faf7',
-  },
+const s = StyleSheet.create({
+  root:   { flex: 1, backgroundColor: C.bg },
+  scroll: { padding: 16, paddingBottom: 40 },
 
-  scrollContent: {
-    paddingBottom: 28,
-  },
+  infoCard:  { backgroundColor: '#E8F5E9', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#C8E6C9' },
+  infoTitle: { fontSize: 14, fontWeight: '800', color: C.primary, marginBottom: 10 },
+  infoRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 6 },
+  infoTxt:   { flex: 1, fontSize: 13, color: C.text2, lineHeight: 18 },
 
-  header: {
-    paddingTop: isSmallScreen ? 42 : 60,
-    paddingBottom: isSmallScreen ? 24 : 30,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
+  pickerCard:   { backgroundColor: C.white, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: C.border, ...SHADOW.sm },
+  pickerTitle:  { fontSize: 17, fontWeight: '800', color: C.text, marginBottom: 16 },
+  pickerBtns:   { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  pickerBtn:    { flex: 1, alignItems: 'center', backgroundColor: C.bg, borderRadius: 16, paddingVertical: 16, borderWidth: 1, borderColor: C.border },
+  pickerIcon:   { width: 52, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  pickerBtnTxt: { fontSize: 13, fontWeight: '700', color: C.text2 },
 
-  badge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    color: '#fff',
-    fontSize: isSmallScreen ? 10 : 12,
-    fontWeight: '700',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
+  previewWrap:   { position: 'relative', marginBottom: 4 },
+  preview:       { width: '100%', height: 220, borderRadius: 14 },
+  clearBtn:      { position: 'absolute', top: 8, right: 8, backgroundColor: C.white, borderRadius: 99 },
+  selectedBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+  selectedTxt:   { fontSize: 12, color: C.success, fontWeight: '600' },
 
-  title: {
-    color: '#fff',
-    fontSize: isSmallScreen ? 24 : 28,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
+  emptyPreview:    { height: 160, borderRadius: 14, backgroundColor: C.surface2, justifyContent: 'center', alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: C.border, borderStyle: 'dashed', marginBottom: 4 },
+  emptyPreviewTxt: { fontSize: 13, color: C.hint },
 
-  headerSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: isSmallScreen ? 13 : 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 760,
-  },
-
-  content: {
-    padding: isSmallScreen ? 14 : 20,
-    width: '100%',
-    maxWidth: 900,
-    alignSelf: 'center',
-  },
-
-  warningCard: {
-    backgroundColor: '#fff3cd',
-    borderColor: '#ffe08a',
-    borderWidth: 1,
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 18,
-  },
-
-  warningTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#856404',
-    marginBottom: 6,
-  },
-
-  warningText: {
-    fontSize: 14,
-    color: '#856404',
-    lineHeight: 20,
-  },
-
-  previewCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: '#dceccf',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-
-  previewImage: {
-    width: '100%',
-    height: isSmallScreen ? 220 : isWideScreen ? 380 : 280,
-    resizeMode: 'cover',
-  },
-
-  previewFooter: {
-    padding: 16,
-    backgroundColor: '#f8fbf7',
-  },
-
-  previewFooterTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#2d5016',
-    marginBottom: 4,
-  },
-
-  previewFooterText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-
-  emptyState: {
-    minHeight: isSmallScreen ? 250 : 320,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#fff',
-  },
-
-  emptyIcon: {
-    fontSize: isSmallScreen ? 54 : 64,
-    marginBottom: 14,
-  },
-
-  emptyTitle: {
-    fontSize: isSmallScreen ? 20 : 22,
-    fontWeight: '700',
-    color: '#2d5016',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-
-  emptyText: {
-    fontSize: isSmallScreen ? 13 : 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 420,
-  },
-
-  actionGrid: {
-    flexDirection: 'column',
-    gap: 14,
-    marginBottom: 18,
-  },
-
-  actionGridWide: {
-    flexDirection: 'row',
-  },
-
-  actionCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#dceccf',
-    borderRadius: 18,
-    padding: isSmallScreen ? 16 : 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: isSmallScreen ? 140 : 160,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 5,
-    elevation: 1,
-  },
-
-  actionIcon: {
-    fontSize: isSmallScreen ? 28 : 34,
-    marginBottom: 10,
-  },
-
-  actionTitle: {
-    fontSize: isSmallScreen ? 17 : 18,
-    fontWeight: '700',
-    color: '#2d5016',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-
-  actionText: {
-    fontSize: isSmallScreen ? 13 : 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 280,
-  },
-
-  detectButton: {
-    backgroundColor: '#2d5016',
-    paddingVertical: isSmallScreen ? 15 : 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-  },
-
-  disabledButton: {
-    opacity: 0.7,
-  },
-
-  detectButtonText: {
-    color: '#fff',
-    fontSize: isSmallScreen ? 15 : 16,
-    fontWeight: '700',
-  },
-
-  tipsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: isSmallScreen ? 16 : 20,
-    borderWidth: 1,
-    borderColor: '#dceccf',
-  },
-
-  cardHeading: {
-    fontSize: isSmallScreen ? 18 : 20,
-    fontWeight: '700',
-    color: '#2d5016',
-    marginBottom: 12,
-  },
-
-  tipRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-
-  tipBullet: {
-    fontSize: 16,
-    color: '#2d5016',
-    marginRight: 8,
-    lineHeight: 20,
-  },
-
-  tipText: {
-    flex: 1,
-    fontSize: isSmallScreen ? 13 : 14,
-    color: '#555',
-    lineHeight: 20,
-  },
+  errBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFF5F5', borderRadius: 10, padding: 12, marginTop: 10, borderWidth: 1, borderColor: C.error + '33' },
+  errTxt: { flex: 1, fontSize: 13, color: C.error, lineHeight: 18 },
 });

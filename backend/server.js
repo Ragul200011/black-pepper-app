@@ -1,206 +1,174 @@
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-const multer = require('multer');
-const fs = require('fs');
-const { spawn } = require('child_process');
-const path = require('path');
+// backend/server.js  — Final Clean Version
+// Berry Analysis (quality grading / curing) route REMOVED
+// All fixes applied: Python detection, fertilizer route, auth stubs, env vars
+require('dotenv').config();
 
-const app = express();
+const express             = require('express');
+const axios               = require('axios');
+const cors                = require('cors');
+const multer              = require('multer');
+const fs                  = require('fs');
+const { spawn, execSync } = require('child_process');
+const path                = require('path');
+
+const app  = express();
 const PORT = process.env.PORT || 5001;
 
-// Middleware
+// ── Detect Python once at startup ─────────────────────────────────────────────
+let PYTHON_CMD = 'python3';
+try { execSync('python --version', { stdio:'ignore' }); PYTHON_CMD = 'python'; } catch {}
+console.log(`🐍 Python: ${PYTHON_CMD}`);
+
+// ── Middleware ─────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 
-// ---------------- Config ----------------
-const TS_CHANNEL = '3187265';
-const TS_KEY = 'ISFWVJXZW7P5TMQ9';
+// ── Config (from .env) ────────────────────────────────────────────────────────
+const TS_CHANNEL = process.env.TS_CHANNEL || '3187265';
+const TS_KEY     = process.env.TS_KEY     || 'ISFWVJXZW7P5TMQ9';
+const OWM_KEY    = process.env.OWM_KEY    || 'bd5e378503939ddaee76f12ad7a97608';
 
-// ---------------- Upload Config ----------------
+// ── File Upload ───────────────────────────────────────────────────────────────
 const uploadsDir = path.join(__dirname, 'uploads');
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive:true });
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const safeName = (file.originalname || 'image.jpg').replace(/\s+/g, '_');
-    cb(null, `${Date.now()}-${safeName}`);
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename:    (req, file, cb) => {
+    const safe = (file.originalname || 'image.jpg').replace(/\s+/g, '_');
+    cb(null, `${Date.now()}-${safe}`);
   },
 });
 
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-  },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    console.log('Incoming file:', {
-      fieldname: file.fieldname,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    });
-
-    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+    if (!file.mimetype?.startsWith('image/'))
       return cb(new Error('Only image files are allowed.'));
-    }
-
     cb(null, true);
   },
 });
 
-const deleteUploadedFile = (filePath) => {
-  if (!filePath) return;
+const deleteFile = (p) => p && fs.unlink(p, () => {});
 
-  fs.unlink(filePath, (err) => {
-    if (err) {
-      console.error('Failed to delete uploaded file:', err.message);
-    } else {
-      console.log('Uploaded file deleted:', filePath);
+// ── Python helper ─────────────────────────────────────────────────────────────
+function runPython(args, callback) {
+  const proc = spawn(PYTHON_CMD, args);
+  let out = '', err = '';
+  proc.stdout.on('data', d => { out += d.toString(); });
+  proc.stderr.on('data', d => { err += d.toString(); });
+  proc.on('error', e  => callback(null, `spawn error: ${e.message}`));
+  proc.on('close', code => {
+    if (code !== 0) return callback(null, err || `exit code ${code}`);
+    try {
+      const lines  = out.trim().split('\n');
+      const parsed = JSON.parse(lines[lines.length - 1].trim());
+      if (parsed.error) return callback(null, parsed.error);
+      callback(parsed, null);
+    } catch (e) {
+      callback(null, `JSON parse failed: ${out.slice(0, 120)}`);
     }
   });
-};
+}
 
-// ---------------- Basic Routes ----------------
-app.get('/', (req, res) => {
-  res.send('Smart Black Pepper Guardian Backend Running 🚀');
-});
+// ── Root / Health ──────────────────────────────────────────────────────────────
+app.get('/', (req, res) => res.send('🌱 Smart Black Pepper Guardian Backend Running'));
 
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    message: 'Backend is running',
-    routes: [
-      'GET /api/soil-analysis',
-      'POST /api/predict-image',
-      'POST /api/variety-predict',
-    ],
+app.get('/health', (req, res) => res.json({
+  status:  'ok',
+  python:  PYTHON_CMD,
+  routes: [
+    'GET  /api/soil-analysis',
+    'GET  /api/weather',
+    'GET  /api/fertilizer',
+    'POST /api/predict-image',
+    'POST /api/variety-predict',
+    'POST /api/auth/signin',
+    'POST /api/auth/register',
+  ],
+}));
+
+// ── Auth (stubs — replace with real DB + JWT) ─────────────────────────────────
+app.post('/api/auth/signin', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ error: 'Email and password are required.' });
+  return res.json({
+    success: true,
+    user: { id:'001', name: email.split('@')[0], email },
+    token: 'dev-token',
   });
 });
 
-// ---------------- Soil Analysis Route ----------------
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password)
+    return res.status(400).json({ error: 'Name, email, and password are required.' });
+  return res.json({
+    success: true,
+    user: { id: Date.now().toString(), name, email },
+    token: 'dev-token',
+  });
+});
+
+// ── Soil Analysis ─────────────────────────────────────────────────────────────
 app.get('/api/soil-analysis', async (req, res) => {
   try {
-    console.log('Fetching live data from ThingSpeak...');
     const url = `https://api.thingspeak.com/channels/${TS_CHANNEL}/feeds.json?api_key=${TS_KEY}&results=1`;
-
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout:10000 });
     const feeds = response.data.feeds;
+    if (!feeds?.length) return res.status(404).json({ error: 'No data on ThingSpeak channel.' });
 
-    if (!feeds || feeds.length === 0) {
-      return res.status(404).json({ error: 'No data found on ThingSpeak channel.' });
-    }
-
-    const latest = feeds[0];
-
-    // ── ThingSpeak Field Mapping ──────────────────────────────────────────
-    // Standard 7-in-1 RS485 soil sensor output order:
-    // field1=Moisture(%) field2=Temperature(°C) field3=EC(unused)
-    // field4=pH  field5=Nitrogen(mg/kg)  field6=Phosphorus(mg/kg)  field7=Potassium(mg/kg)
-    // NOTE: Humidity is not sent by this sensor — removed from mapping.
+    const f = feeds[0];
     const sensorData = {
-      Moisture:     parseFloat(latest.field1 || 0),   // field1 = Moisture %
-      Temperature:  parseFloat(latest.field2 || 0),   // field2 = Temperature °C
-      // field3 = EC (electrical conductivity) — not used by the AI model
-      pH:           parseFloat(latest.field4 || 0),   // field4 = pH
-      Nitrogen:     parseFloat(latest.field5 || 0),   // field5 = Nitrogen mg/kg
-      Phosphorus:   parseFloat(latest.field6 || 0),   // field6 = Phosphorus mg/kg
-      Potassium:    parseFloat(latest.field7 || 0),   // field7 = Potassium mg/kg
-      Humidity:     0,  // Not provided by this sensor hardware
+      Moisture:    parseFloat(f.field1 || 0),
+      Temperature: parseFloat(f.field2 || 0),
+      pH:          parseFloat(f.field4 || 0),
+      Nitrogen:    parseFloat(f.field5 || 0),
+      Phosphorus:  parseFloat(f.field6 || 0),
+      Potassium:   parseFloat(f.field7 || 0),
+      Humidity:    0,
     };
-    // Log the raw ThingSpeak fields alongside mapped values for easy debugging
-    console.log('Raw ThingSpeak fields:', {
-      field1: latest.field1, field2: latest.field2, field3: latest.field3,
-      field4: latest.field4, field5: latest.field5, field6: latest.field6, field7: latest.field7
-    });
 
-    console.log('Extracted Sensor Data:', sensorData);
-
-    // ── Rule-based fallback AI (used when Python ML is unavailable) ──────────
     function ruleBasedAnalysis(s) {
       const issues = [];
-      if (s.pH < 5.0 || s.pH > 7.5)       issues.push(`pH ${s.pH} outside 5.0–7.5`);
-      if (s.Nitrogen < 30)                  issues.push(`Low Nitrogen (${s.Nitrogen} mg/kg)`);
-      if (s.Phosphorus < 10)                issues.push(`Low Phosphorus (${s.Phosphorus} mg/kg)`);
-      if (s.Potassium < 50)                 issues.push(`Low Potassium (${s.Potassium} mg/kg)`);
-      if (s.Moisture < 30 || s.Moisture > 85) issues.push(`Moisture ${s.Moisture}% out of range`);
-      if (s.Temperature < 18 || s.Temperature > 38) issues.push(`Temperature ${s.Temperature}°C out of range`);
+      if (s.pH < 5.0 || s.pH > 7.5)               issues.push(`pH ${s.pH} outside 5.0–7.5`);
+      if (s.Nitrogen < 30)                          issues.push(`Low N (${s.Nitrogen} mg/kg)`);
+      if (s.Phosphorus < 10)                        issues.push(`Low P (${s.Phosphorus} mg/kg)`);
+      if (s.Potassium < 50)                         issues.push(`Low K (${s.Potassium} mg/kg)`);
+      if (s.Moisture < 30 || s.Moisture > 85)       issues.push(`Moisture ${s.Moisture}% out of range`);
+      if (s.Temperature < 18 || s.Temperature > 38) issues.push(`Temp ${s.Temperature}°C out of range`);
       const healthy = issues.length === 0;
       return {
-        prediction:  healthy ? 'Healthy' : 'Needs Attention',
-        status:      healthy ? 'Healthy' : 'Needs Attention',
-        consensus:   healthy ? 'Healthy Soil' : 'Soil Needs Attention',
-        issues,
-        rule_based:  true,
-        note:        healthy ? 'All parameters within optimal range' : issues.join('; '),
+        prediction: healthy ? 'Healthy' : 'Needs Attention',
+        status:     healthy ? 'Healthy' : 'Needs Attention',
+        consensus:  healthy ? 'Healthy Soil' : 'Soil Needs Attention',
+        issues,  rule_based: true,
+        note: healthy ? 'All parameters within optimal range' : issues.join('; '),
       };
     }
 
-    // ── Try Python ML, fall back to rule-based ───────────────────────────────
-    function runPrediction(cmd, args, callback) {
-      const proc = spawn(cmd, args);
-      let out = '', err = '';
-      proc.stdout.on('data', d => { out += d.toString(); });
-      proc.stderr.on('data', d => { err += d.toString(); });
-      proc.on('error', e  => callback(null, `spawn error: ${e.message}`));
-      proc.on('close', code => {
-        if (code !== 0) return callback(null, err || `exit code ${code}`);
-        try {
-          const lines = out.trim().split('\n');
-          const parsed = JSON.parse(lines[lines.length - 1].trim());
-          if (parsed.error) return callback(null, parsed.error);
-          callback(parsed, null);
-        } catch (e) {
-          callback(null, `JSON parse failed: ${out.slice(0, 100)}`);
-        }
-      });
-    }
-
-    const predictArgs = [path.join(__dirname, 'predict.py'), JSON.stringify(sensorData)];
-
-    // Try 'python' first, then 'python3'
-    runPrediction('python', predictArgs, (result1, err1) => {
-      if (result1) {
-        console.log('ML prediction (python):', result1);
-        return res.json({ timestamp: latest.created_at, sensors: sensorData, ai_analysis: result1 });
-      }
-      console.warn('python failed:', err1, '— trying python3...');
-      runPrediction('python3', predictArgs, (result2, err2) => {
-        if (result2) {
-          console.log('ML prediction (python3):', result2);
-          return res.json({ timestamp: latest.created_at, sensors: sensorData, ai_analysis: result2 });
-        }
-        // Both failed — use rule-based analysis so the app always shows a verdict
-        console.warn('python3 also failed:', err2, '— using rule-based fallback');
-        const fallback = ruleBasedAnalysis(sensorData);
-        return res.json({ timestamp: latest.created_at, sensors: sensorData, ai_analysis: fallback });
-      });
+    runPython([path.join(__dirname, 'predict.py'), JSON.stringify(sensorData)], (result, err) => {
+      if (err) console.warn('Python ML failed — using rule-based:', err);
+      const ai = result ?? ruleBasedAnalysis(sensorData);
+      return res.json({ timestamp: f.created_at, sensors: sensorData, ai_analysis: ai });
     });
+
   } catch (error) {
-    console.error('Server Error:', error.message);
-    return res.status(500).json({ error: 'Failed to fetch from ThingSpeak or process data.' });
+    console.error('Soil analysis error:', error.message);
+    return res.status(500).json({ error: 'Failed to fetch from ThingSpeak.' });
   }
 });
 
-// ---------------- Weather Route ----------------
-// Uses OpenWeatherMap free API. Get a free key at https://openweathermap.org/api
-// Replace the key below with your own, or set env var OWM_KEY
-const OWM_KEY = process.env.OWM_KEY || 'bd5e378503939ddaee76f12ad7a97608'; // demo key
-
+// ── Weather ───────────────────────────────────────────────────────────────────
 app.get('/api/weather', async (req, res) => {
   try {
     const lat = parseFloat(req.query.lat) || 6.9147;
     const lon = parseFloat(req.query.lon) || 79.9729;
-
     const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric`;
-    const response = await axios.get(url, { timeout: 8000 });
-    const d = response.data;
-
+    const r = await axios.get(url, { timeout:8000 });
+    const d = r.data;
     return res.json({
       city:        d.name,
       temperature: d.main.temp,
@@ -210,189 +178,74 @@ app.get('/api/weather', async (req, res) => {
       weather:     d.weather[0]?.description ?? '',
       icon:        d.weather[0]?.icon ?? '',
     });
-  } catch (error) {
-    console.error('Weather API error:', error.message);
-    return res.status(500).json({
-      error: 'Could not fetch weather data.',
-      hint: 'Ensure OWM_KEY env var is set with a valid OpenWeatherMap API key.',
-    });
+  } catch (e) {
+    console.error('Weather error:', e.message);
+    return res.status(500).json({ error: 'Could not fetch weather data.' });
   }
 });
 
-// ---------------- General Image Prediction Route ----------------
-app.post(
-  '/api/predict-image',
-  (req, res, next) => {
-    console.log('==== IMAGE UPLOAD REQUEST RECEIVED ====');
-    next();
-  },
+// ── Fertilizer ────────────────────────────────────────────────────────────────
+app.get('/api/fertilizer', (req, res) => {
+  const n = parseFloat(req.query.n) || 0;
+  const p = parseFloat(req.query.p) || 0;
+  const k = parseFloat(req.query.k) || 0;
+  const ph = parseFloat(req.query.ph) || 7;
+
+  function score(id) {
+    let s = 0;
+    if (id===1){ s=20; if(n<20)s+=55; else if(n<40)s+=40; else if(n<60)s+=15; else if(n<80)s+=2; else s-=25; if(ph>=5.5&&ph<=7)s+=15; }
+    else if(id===2){ s=25; if(n>=20&&n<=70&&p>=10&&p<=35&&k>=30&&k<=100)s+=40; if(ph>=5.5&&ph<=7)s+=20; }
+    else if(id===3){ s=18; if(p<10)s+=58; else if(p<20)s+=42; else if(p<30)s+=20; else if(p<40)s+=5; else s-=15; if(ph>=5.5&&ph<=6.5)s+=14; }
+    else if(id===4){ s=18; if(k<30)s+=58; else if(k<60)s+=42; else if(k<90)s+=20; else if(k<120)s+=5; else s-=15; if(ph>=5.5&&ph<=7)s+=14; }
+    else if(id===5){ s=15; if(ph<4.5)s+=65; else if(ph<5)s+=55; else if(ph<5.5)s+=40; else if(ph<6)s+=15; else if(ph>7)s-=25; }
+    else if(id===6){ s=50; if(n<30||p<15||k<40)s+=15; if(ph<5.5||ph>7.5)s+=10; }
+    else if(id===7){ s=15; if(p<15)s+=38; if(n>=15&&n<=50)s+=18; if(k>=20&&k<=80)s+=15; if(ph>=5.5&&ph<=6.8)s+=14; }
+    return Math.max(0, Math.min(100, s));
+  }
+
+  const all_ranked = [1,2,3,4,5,6,7]
+    .map(id => ({ id, score: score(id) }))
+    .sort((a,b) => b.score - a.score);
+
+  return res.json({ all_ranked, source:'server' });
+});
+
+// ── Disease Image Prediction ───────────────────────────────────────────────────
+app.post('/api/predict-image',
+  (req, res, next) => { console.log('Image upload received'); next(); },
   upload.single('file'),
   (req, res) => {
-    try {
-      console.log('Uploaded file object:', req.file);
-      console.log('Request body:', req.body);
-
-      if (!req.file) {
-        return res.status(400).json({
-          error: "No image uploaded. Use form-data with field name 'file'.",
-        });
-      }
-
-      const imagePath = req.file.path;
-      const pythonScript = path.join(__dirname, 'predict_image.py');
-
-      console.log('Saved image path:', imagePath);
-      console.log('Python script path:', pythonScript);
-
-      const pythonProcess = spawn('python', [pythonScript, imagePath]);
-
-      let predictionResult = '';
-      let errorResult = '';
-
-      pythonProcess.stdout.on('data', (data) => {
-        predictionResult += data.toString();
-      });
-
-      pythonProcess.stderr.on('data', (data) => {
-        errorResult += data.toString();
-        console.error(`Image Python stderr: ${data}`);
-      });
-
-      pythonProcess.on('close', (code) => {
-        console.log('Python process exit code:', code);
-
-        if (code !== 0) {
-          console.error(`predict_image.py exited with code ${code}`);
-          console.error('Python stdout:', predictionResult);
-          console.error('Python stderr:', errorResult);
-
-          deleteUploadedFile(imagePath);
-
-          return res.status(500).json({
-            error: 'Image prediction failed',
-            stdout: predictionResult,
-            stderr: errorResult,
-          });
-        }
-
-        try {
-          const lines = predictionResult.trim().split('\n');
-          const lastLine = lines[lines.length - 1].trim();
-          const aiResponse = JSON.parse(lastLine);
-
-          deleteUploadedFile(imagePath);
-
-          return res.json({
-            success: true,
-            image_name: req.file.filename,
-            ai_analysis: aiResponse,
-          });
-        } catch (parseError) {
-          console.error('Failed to parse Python output:', predictionResult);
-
-          deleteUploadedFile(imagePath);
-
-          return res.status(500).json({
-            error: 'Invalid image prediction format returned.',
-            raw_output: predictionResult,
-            stderr: errorResult,
-          });
-        }
-      });
-    } catch (error) {
-      console.error('Server Error:', error.message);
-      return res.status(500).json({
-        error: 'Failed to process uploaded image.',
-        details: error.message,
-      });
-    }
+    if (!req.file) return res.status(400).json({ error: "No image. Use field name 'file'." });
+    const imgPath = req.file.path;
+    runPython([path.join(__dirname, 'predict_image.py'), imgPath], (result, err) => {
+      deleteFile(imgPath);
+      if (err) return res.status(500).json({ error: 'Image prediction failed', details: err });
+      return res.json({ success:true, image_name: req.file.filename, ai_analysis: result });
+    });
   }
 );
 
-// ---------------- Variety Prediction Route ----------------
+// ── Variety Prediction ────────────────────────────────────────────────────────
 app.post('/api/variety-predict', upload.single('image'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No image uploaded.' });
-    }
-
-    const imagePath = req.file.path;
-    console.log('Received image:', imagePath);
-
-    const pythonProcess = spawn('python', [
-      path.join(__dirname, 'predict_variety.py'),
-      imagePath,
-    ]);
-
-    let result = '';
-    let errorResult = '';
-
-    pythonProcess.stdout.on('data', (data) => {
-      result += data.toString();
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      errorResult += data.toString();
-      console.error(`Python Error: ${data}`);
-    });
-
-    pythonProcess.on('close', (code) => {
-      console.log('=== Python exit code:', code);
-      console.log('=== Python stdout:', result);
-      console.log('=== Python stderr:', errorResult);
-
-      deleteUploadedFile(imagePath);
-
-      if (code !== 0) {
-        console.error(`Python script exited with code ${code}`);
-        return res.status(500).json({
-          error: 'Variety prediction failed',
-          details: errorResult,
-        });
-      }
-
-      try {
-        const lines = result.trim().split('\n');
-        const lastLine = lines[lines.length - 1].trim();
-        const parsed = JSON.parse(lastLine);
-        return res.json(parsed);
-      } catch (err) {
-        console.error('Failed to parse Python output:', result);
-        return res.status(500).json({
-          error: 'Invalid response from Python script',
-        });
-      }
-    });
-  } catch (error) {
-    console.error('Server Error:', error.message);
-    return res.status(500).json({ error: 'Server failed during image prediction.' });
-  }
+  if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
+  const imgPath = req.file.path;
+  runPython([path.join(__dirname, 'predict_variety.py'), imgPath], (result, err) => {
+    deleteFile(imgPath);
+    if (err) return res.status(500).json({ error: 'Variety prediction failed', details: err });
+    return res.json(result);
+  });
 });
 
-// ---------------- Multer Error Handler ----------------
+// ── Error Handler ─────────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('Multer/Route error:', err);
-
-  if (err instanceof multer.MulterError) {
-    return res.status(400).json({
-      error: 'Upload error',
-      details: err.message,
-    });
-  }
-
-  if (err) {
-    return res.status(400).json({
-      error: err.message,
-    });
-  }
-
+  if (err instanceof multer.MulterError)
+    return res.status(400).json({ error: 'Upload error', details: err.message });
+  if (err) return res.status(400).json({ error: err.message });
   next();
 });
 
-// ---------------- Start Server ----------------
+// ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🌱 Smart Black Pepper Guardian Backend running on http://localhost:${PORT}`);
-  console.log(`📡 Listening for requests at /api/soil-analysis`);
-  console.log(`📸 Listening for requests at /api/predict-image`);
-  console.log(`🍃 Listening for requests at /api/variety-predict`);
+  console.log(`\n🌱 Smart Black Pepper Guardian  →  http://localhost:${PORT}`);
+  console.log(`Routes: soil-analysis · weather · fertilizer · predict-image · variety-predict · auth\n`);
 });

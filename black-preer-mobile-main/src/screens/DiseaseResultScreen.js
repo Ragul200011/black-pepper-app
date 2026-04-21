@@ -1,444 +1,158 @@
-import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  Dimensions,
-  Platform,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// src/screens/DiseaseResultScreen.js — Premium v4
+import React from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Platform, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { C, SHADOW, T } from '../components/theme';
 
-const { width } = Dimensions.get("window");
+const { width } = Dimensions.get('window');
 
-const isSmallScreen = width < 480;
-const isWideScreen = width >= 768;
+const CONFIG = {
+  healthy:     { color:C.success, icon:'checkmark-circle', label:'Healthy',     bg:'rgba(76,175,80,0.10)' },
+  leaf_blight: { color:C.warning, icon:'warning',          label:'Leaf Blight', bg:'rgba(255,143,0,0.10)' },
+  slow_wilt:   { color:C.error,   icon:'alert-circle',     label:'Slow Wilt',   bg:'rgba(239,83,80,0.10)' },
+};
 
 export default function DiseaseResultScreen({ route, navigation }) {
-  const {
-    image,
-    disease,
-    confidence,
-    treatment,
-    description,
-    probabilities,
-    lowConfidence,
-  } = route.params;
+  const { image, disease, confidence, treatment, description, probabilities, lowConfidence } = route.params ?? {};
+  const key = (disease ?? '').toLowerCase().replace(/\s+/g,'_');
+  const cfg = CONFIG[key] ?? { color:C.text3, icon:'help-circle', label:disease, bg:C.bg2 };
 
-  const getSafeImageForHistory = (uri) => {
-    if (!uri || typeof uri !== "string") return null;
-    if (Platform.OS === "web" && uri.startsWith("blob:")) return null;
-    return uri;
-  };
-
-  const handleSave = async () => {
-    try {
-      const safeImage = getSafeImageForHistory(image);
-
-      const newItem = {
-        id: Date.now().toString(),
-        image: safeImage,
-        disease,
-        confidence,
-        treatment,
-        description,
-        probabilities,
-        lowConfidence: lowConfidence || false,
-        savedAt: new Date().toLocaleString(),
-      };
-
-      const existing = await AsyncStorage.getItem("disease_history");
-      const history = existing ? JSON.parse(existing) : [];
-
-      history.unshift(newItem);
-
-      await AsyncStorage.setItem("disease_history", JSON.stringify(history));
-
-      if (Platform.OS === "web" && image?.startsWith("blob:")) {
-        Alert.alert(
-          "Saved",
-          "The result was saved. Image preview may not be available later on web for temporary uploaded images."
-        );
-      }
-
-      navigation.navigate("DiseaseHistory");
-    } catch (error) {
-      console.log("Save error:", error);
-      Alert.alert("Error", "Failed to save result.");
-    }
-  };
-
-  const handleHistory = () => {
-    navigation.navigate("DiseaseHistory");
-  };
-
-  const handleDetectAnother = () => {
-    navigation.navigate("DiseaseUpload");
-  };
+  const probs = probabilities ?? {};
+  const maxProb = Math.max(1, ...Object.values(probs));
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      <LinearGradient
-        colors={["#1a3409", "#2d5016", "#1a3409"]}
-        style={styles.header}
-      >
-        <Text style={styles.badge}>AI Analysis Complete</Text>
-        <Text style={styles.title}>Detection Result</Text>
-        <Text style={styles.headerSubtitle}>
-          Review the prediction, confidence level, and treatment guidance below.
-        </Text>
-      </LinearGradient>
+    <ScrollView style={s.root} showsVerticalScrollIndicator={false}>
+      {/* Image */}
+      {image && (
+        <View style={s.imageWrap}>
+          <Image source={{uri:image}} style={s.image} resizeMode="cover" />
+          <LinearGradient colors={['transparent','rgba(8,15,5,0.9)']} style={s.imageOverlay} />
+          <View style={s.imageBadge}>
+            <Ionicons name={cfg.icon} size={20} color={cfg.color} style={{marginRight:6}} />
+            <Text style={[s.imageBadgeTxt, {color:cfg.color}]}>{cfg.label}</Text>
+          </View>
+        </View>
+      )}
 
-      <View style={styles.content}>
-        <View style={styles.imageCard}>
-          {image ? (
-            <Image source={{ uri: image }} style={styles.image} />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Text style={styles.imagePlaceholderIcon}>🖼️</Text>
-              <Text style={styles.imagePlaceholderText}>No image preview</Text>
+      <View style={s.body}>
+        {/* Result card */}
+        <View style={[s.resultCard, {backgroundColor:cfg.bg, borderColor:cfg.color+'30'}]}>
+          <View style={s.resultTop}>
+            <Ionicons name={cfg.icon} size={32} color={cfg.color} />
+            <View style={{flex:1, marginLeft:12}}>
+              <Text style={s.resultCap}>DETECTION RESULT</Text>
+              <Text style={[s.resultLabel, {color:cfg.color}]}>{cfg.label}</Text>
+            </View>
+            <View style={[s.confBadge, {borderColor:cfg.color+'40'}]}>
+              <Text style={[s.confPct, {color:cfg.color}]}>{Number(confidence ?? 0).toFixed(1)}%</Text>
+              <Text style={s.confLbl}>confidence</Text>
+            </View>
+          </View>
+
+          {lowConfidence && (
+            <View style={s.lowConfWarn}>
+              <Ionicons name="warning-outline" size={14} color={C.warning} style={{marginRight:6}} />
+              <Text style={s.lowConfTxt}>Low confidence — try a clearer, better-lit photo</Text>
             </View>
           )}
         </View>
 
-        {lowConfidence && (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>⚠ Low Confidence Detection</Text>
-            <Text style={styles.warningText}>
-              This result may indicate an early or mild infection. Capture a clearer
-              close-up image in good lighting for more accurate detection and monitor
-              the plant condition.
-            </Text>
+        {/* Probabilities */}
+        {Object.keys(probs).length > 0 && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Model Probabilities</Text>
+            {Object.entries(probs).sort((a,b)=>b[1]-a[1]).map(([k,v]) => {
+              const pct = ((v/maxProb)*100).toFixed(0);
+              const c2 = CONFIG[k.toLowerCase().replace(/\s+/g,'_')]?.color ?? C.text3;
+              return (
+                <View key={k} style={s.probRow}>
+                  <Text style={s.probLabel} numberOfLines={1}>{k.replace(/_/g,' ')}</Text>
+                  <View style={s.probTrack}>
+                    <View style={[s.probFill, {width:`${pct}%`, backgroundColor:c2}]} />
+                  </View>
+                  <Text style={[s.probPct, {color:c2}]}>{Number(v).toFixed(1)}%</Text>
+                </View>
+              );
+            })}
           </View>
         )}
 
-        <View style={styles.resultCard}>
-          <Text style={styles.cardHeading}>Detected Disease</Text>
-          <Text style={styles.resultValue}>{disease || "Unknown"}</Text>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Confidence</Text>
-            <Text style={styles.valueHighlight}>{confidence || "N/A"}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.labelBlock}>Description</Text>
-          <Text style={styles.valueBlock}>
-            {description || "No description available."}
-          </Text>
-
-          <Text style={styles.labelBlock}>Treatment Recommendation</Text>
-          <Text style={styles.valueBlock}>
-            {treatment || "Consult an agricultural expert."}
-          </Text>
-        </View>
-
-        {probabilities && Object.keys(probabilities).length > 0 && (
-          <View style={styles.probCard}>
-            <Text style={styles.cardHeading}>All Predictions</Text>
-
-            {Object.entries(probabilities).map(([key, value]) => (
-              <View key={key} style={styles.probRow}>
-                <Text style={styles.probDisease}>{key}</Text>
-                <Text style={styles.probValue}>{value}%</Text>
-              </View>
-            ))}
+        {/* Description */}
+        {!!description && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>About this condition</Text>
+            <Text style={s.cardBody}>{description}</Text>
           </View>
         )}
 
-        <View
-          style={[
-            styles.buttonGroup,
-            isWideScreen && styles.buttonGroupWide,
-          ]}
-        >
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>💾 Save Result</Text>
-          </TouchableOpacity>
+        {/* Treatment */}
+        {!!treatment && (
+          <View style={[s.card, {borderColor:cfg.color+'25'}]}>
+            <View style={s.treatHeader}>
+              <Ionicons name="medkit-outline" size={16} color={cfg.color} style={{marginRight:8}} />
+              <Text style={[s.cardTitle, {color:cfg.color}]}>Recommended Treatment</Text>
+            </View>
+            <Text style={s.cardBody}>{treatment}</Text>
+          </View>
+        )}
 
-          <TouchableOpacity style={styles.historyButton} onPress={handleHistory}>
-            <Text style={styles.historyButtonText}>📜 View History</Text>
+        {/* Actions */}
+        <View style={s.actionsRow}>
+          <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('DiseaseUpload')} activeOpacity={0.85}>
+            <LinearGradient colors={['#B71C1C','#EF5350']} style={s.actionGrad}>
+              <Ionicons name="camera-outline" size={16} color="#fff" style={{marginRight:6}} />
+              <Text style={s.actionTxt}>Scan Again</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionBtnOutline} onPress={() => navigation.navigate('DiseaseHistory')} activeOpacity={0.8}>
+            <Ionicons name="time-outline" size={16} color={C.text2} style={{marginRight:6}} />
+            <Text style={s.actionOutlineTxt}>View History</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.detectAgainButton}
-          onPress={handleDetectAnother}
-        >
-          <Text style={styles.detectAgainText}>🔄 Detect Another Leaf</Text>
-        </TouchableOpacity>
       </View>
+      <View style={{height:32}} />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f7faf7",
-  },
+const s = StyleSheet.create({
+  root: { flex:1, backgroundColor:C.bg },
 
-  scrollContent: {
-    paddingBottom: 28,
-  },
+  imageWrap:    { height:260, position:'relative' },
+  image:        { width:'100%', height:'100%' },
+  imageOverlay: { position:'absolute', bottom:0, left:0, right:0, height:120 },
+  imageBadge:   { position:'absolute', bottom:16, left:20, flexDirection:'row', alignItems:'center', backgroundColor:'rgba(8,15,5,0.7)', borderRadius:20, paddingHorizontal:12, paddingVertical:6, borderWidth:1, borderColor:C.border },
+  imageBadgeTxt:{ fontSize:14, fontWeight:'800' },
 
-  header: {
-    paddingTop: isSmallScreen ? 42 : 60,
-    paddingBottom: isSmallScreen ? 24 : 30,
-    paddingHorizontal: 20,
-    alignItems: "center",
-  },
+  body: { padding:20 },
 
-  badge: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    color: "#fff",
-    fontSize: isSmallScreen ? 10 : 12,
-    fontWeight: "700",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 12,
-    overflow: "hidden",
-  },
+  resultCard: { borderRadius:18, padding:18, marginBottom:14, borderWidth:1.5 },
+  resultTop:  { flexDirection:'row', alignItems:'center' },
+  resultCap:  { fontSize:9, fontWeight:'800', color:C.text3, letterSpacing:1.4, marginBottom:4 },
+  resultLabel:{ fontSize:22, fontWeight:'900', letterSpacing:-0.4 },
+  confBadge:  { alignItems:'center', borderWidth:1, borderRadius:14, paddingHorizontal:12, paddingVertical:8 },
+  confPct:    { fontSize:20, fontWeight:'900' },
+  confLbl:    { fontSize:9, color:C.text3, fontWeight:'600' },
+  lowConfWarn:{ flexDirection:'row', alignItems:'center', marginTop:12, backgroundColor:'rgba(255,143,0,0.10)', borderRadius:10, padding:10 },
+  lowConfTxt: { fontSize:12, color:C.warning, flex:1 },
 
-  title: {
-    color: "#fff",
-    fontSize: isSmallScreen ? 24 : 28,
-    fontWeight: "800",
-    textAlign: "center",
-    marginBottom: 8,
-  },
+  card:      { backgroundColor:C.bg2, borderRadius:18, padding:18, marginBottom:12, borderWidth:1, borderColor:C.border, ...SHADOW.sm },
+  cardTitle: { fontSize:14, fontWeight:'800', color:C.text, marginBottom:12 },
+  cardBody:  { fontSize:13, color:C.text3, lineHeight:21 },
 
-  headerSubtitle: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: isSmallScreen ? 13 : 15,
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 760,
-  },
+  probRow:   { flexDirection:'row', alignItems:'center', gap:10, marginBottom:10 },
+  probLabel: { width:100, fontSize:12, color:C.text2, fontWeight:'600' },
+  probTrack: { flex:1, height:8, backgroundColor:C.bg3, borderRadius:4, overflow:'hidden' },
+  probFill:  { height:8, borderRadius:4 },
+  probPct:   { width:42, fontSize:12, fontWeight:'800', textAlign:'right' },
 
-  content: {
-    padding: isSmallScreen ? 14 : 20,
-    width: "100%",
-    maxWidth: 900,
-    alignSelf: "center",
-  },
+  treatHeader: { flexDirection:'row', alignItems:'center', marginBottom:10 },
 
-  imageCard: {
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    overflow: "hidden",
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#dceccf",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-
-  image: {
-    width: "100%",
-    height: isSmallScreen ? 220 : isWideScreen ? 380 : 280,
-    resizeMode: "cover",
-  },
-
-  imagePlaceholder: {
-    height: 220,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#eef3ea",
-  },
-
-  imagePlaceholderIcon: {
-    fontSize: 34,
-    marginBottom: 8,
-  },
-
-  imagePlaceholderText: {
-    fontSize: 14,
-    color: "#666",
-  },
-
-  warningCard: {
-    backgroundColor: "#fff3cd",
-    borderColor: "#ffe08a",
-    borderWidth: 1,
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 18,
-  },
-
-  warningTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#856404",
-    marginBottom: 6,
-  },
-
-  warningText: {
-    fontSize: 14,
-    color: "#856404",
-    lineHeight: 20,
-  },
-
-  resultCard: {
-    backgroundColor: "#f1f8e9",
-    padding: isSmallScreen ? 16 : 20,
-    borderRadius: 18,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#dceccf",
-  },
-
-  cardHeading: {
-    fontSize: isSmallScreen ? 18 : 20,
-    fontWeight: "700",
-    color: "#2d5016",
-    marginBottom: 10,
-  },
-
-  resultValue: {
-    fontSize: isSmallScreen ? 22 : 26,
-    fontWeight: "800",
-    color: "#4caf50",
-    marginBottom: 14,
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2d5016",
-  },
-
-  valueHighlight: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1f3d0f",
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: "#d7e6cf",
-    marginVertical: 14,
-  },
-
-  labelBlock: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#2d5016",
-    marginTop: 8,
-    marginBottom: 6,
-  },
-
-  valueBlock: {
-    fontSize: 14,
-    color: "#444",
-    lineHeight: 21,
-  },
-
-  probCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
-    padding: isSmallScreen ? 16 : 20,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#dceccf",
-  },
-
-  probRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eef3ea",
-  },
-
-  probDisease: {
-    fontSize: 15,
-    color: "#333",
-    flex: 1,
-    paddingRight: 10,
-  },
-
-  probValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#2d5016",
-  },
-
-  buttonGroup: {
-    gap: 12,
-    flexDirection: "column",
-    marginBottom: 14,
-  },
-
-  buttonGroupWide: {
-    flexDirection: "row",
-  },
-
-  saveButton: {
-    flex: 1,
-    backgroundColor: "#2d5016",
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  saveButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-
-  historyButton: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: "#b9d3b0",
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  historyButtonText: {
-    color: "#2d5016",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-
-  detectAgainButton: {
-    backgroundColor: "#eef5eb",
-    borderWidth: 1,
-    borderColor: "#dceccf",
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  detectAgainText: {
-    color: "#2d5016",
-    fontWeight: "700",
-    fontSize: 15,
-  },
+  actionsRow:      { flexDirection:'row', gap:12, marginTop:8 },
+  actionBtn:       { flex:2, borderRadius:14, overflow:'hidden', ...SHADOW.md },
+  actionGrad:      { flexDirection:'row', alignItems:'center', justifyContent:'center', paddingVertical:15 },
+  actionTxt:       { fontSize:15, fontWeight:'800', color:'#fff' },
+  actionBtnOutline:{ flex:1, flexDirection:'row', alignItems:'center', justifyContent:'center', backgroundColor:C.bg2, borderRadius:14, borderWidth:1, borderColor:C.border },
+  actionOutlineTxt:{ fontSize:14, fontWeight:'700', color:C.text2 },
 });

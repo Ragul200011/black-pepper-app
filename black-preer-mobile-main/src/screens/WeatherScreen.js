@@ -1,108 +1,66 @@
-// src/screens/WeatherScreen.js
-// ─────────────────────────────────────────────────────────────────────────────
-//  Black Pepper AI – Weather Station Screen
-//  • Fetches live weather via Node.js backend /api/weather
-//  • Shows temperature, humidity, wind, feels-like, conditions
-//  • Black pepper farming tips based on current conditions
-//  • Pull-to-refresh + auto-refresh every 60 s
-//  • Matches dark forest-green design of the rest of the app
-// ─────────────────────────────────────────────────────────────────────────────
-
+// src/screens/WeatherScreen.js  — Light Theme
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { WEATHER_URL } from '../config/api';
 import { C, SHADOW } from '../components/theme';
 import BottomNav from '../components/BottomNav';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const AUTO_REFRESH_SECONDS = 60;
-const REQUEST_TIMEOUT_MS   = 12000;
+const AUTO_REFRESH = 60;
+const TIMEOUT_MS   = 12000;
 
-// ─── Farming tips based on weather conditions ────────────────────────────────
-function getFarmingTips(weather) {
-  if (!weather) return [];
+function getFarmingTips(w) {
+  if (!w) return [];
   const tips = [];
-  const temp = weather.temperature;
-  const hum  = weather.humidity;
-  const wind = weather.wind;
-  const cond = (weather.weather ?? '').toLowerCase();
+  const t = w.temperature, h = w.humidity, wind = w.wind;
+  const cond = (w.weather ?? '').toLowerCase();
 
-  if (temp < 20)
-    tips.push({ emoji: '🥶', text: 'Temperature is low. Black pepper prefers 20–35°C. Consider protective coverings for young vines.' });
-  else if (temp > 35)
-    tips.push({ emoji: '🌡️', text: 'High temperature alert. Ensure adequate irrigation and shade for pepper vines.' });
-  else
-    tips.push({ emoji: '✅', text: `Temperature ${Math.round(temp)}°C is within the optimal range for black pepper growth.` });
+  if (t < 20)       tips.push({ icon:'thermometer-outline',  color:'#0277BD', text:`Temperature ${Math.round(t)}°C is low. Pepper prefers 20–35°C. Consider vine protection.` });
+  else if (t > 35)  tips.push({ icon:'sunny-outline',        color:'#E65100', text:`High temperature ${Math.round(t)}°C. Ensure adequate irrigation and shade for vines.` });
+  else              tips.push({ icon:'checkmark-circle-outline', color:C.success, text:`Temperature ${Math.round(t)}°C is ideal for black pepper growth.` });
 
-  if (hum < 50)
-    tips.push({ emoji: '💧', text: 'Low humidity detected. Increase irrigation frequency to prevent moisture stress.' });
-  else if (hum > 90)
-    tips.push({ emoji: '⚠️', text: 'Very high humidity. Monitor for fungal diseases like Phytophthora and leaf blight.' });
-  else
-    tips.push({ emoji: '✅', text: `Humidity ${hum}% is suitable. Maintain regular monitoring for disease signs.` });
+  if (h < 50)       tips.push({ icon:'water-outline',        color:C.warning, text:`Low humidity (${h}%). Increase irrigation to prevent moisture stress.` });
+  else if (h > 90)  tips.push({ icon:'warning-outline',      color:C.error,   text:`Very high humidity (${h}%). Monitor for Phytophthora and leaf blight.` });
+  else              tips.push({ icon:'leaf-outline',          color:C.success, text:`Humidity ${h}% is suitable. Continue regular disease monitoring.` });
 
   if (cond.includes('rain') || cond.includes('drizzle'))
-    tips.push({ emoji: '🌧️', text: 'Rainfall expected. Delay fertilizer application — rain washes nutrients away.' });
+    tips.push({ icon:'rainy-outline',  color:C.info,    text:'Rainfall expected. Delay fertilizer application — rain washes nutrients away.' });
   else if (cond.includes('clear') || cond.includes('sun'))
-    tips.push({ emoji: '☀️', text: 'Clear conditions. Good time to apply foliar fertilizers or conduct field inspections.' });
+    tips.push({ icon:'sunny-outline',  color:C.warning, text:'Clear conditions. Good time to apply foliar fertilizers or inspect fields.' });
 
   if (wind > 10)
-    tips.push({ emoji: '💨', text: 'Strong winds. Check vine supports and trellises to prevent stem damage.' });
+    tips.push({ icon:'arrow-forward-circle-outline', color:'#455A64', text:'Strong winds. Check vine supports and trellises to prevent stem damage.' });
 
   return tips;
 }
 
-// ─── Weather condition → emoji mapping ───────────────────────────────────────
-function conditionEmoji(condition) {
-  const c = (condition ?? '').toLowerCase();
-  if (c.includes('thunder'))        return '⛈️';
-  if (c.includes('drizzle'))        return '🌦️';
-  if (c.includes('rain'))           return '🌧️';
-  if (c.includes('snow'))           return '❄️';
-  if (c.includes('mist') || c.includes('fog')) return '🌫️';
-  if (c.includes('cloud'))          return '☁️';
-  if (c.includes('clear'))          return '☀️';
-  if (c.includes('sun'))            return '🌤️';
+function condEmoji(c) {
+  const s = (c ?? '').toLowerCase();
+  if (s.includes('thunder')) return '⛈️';
+  if (s.includes('drizzle')) return '🌦️';
+  if (s.includes('rain'))    return '🌧️';
+  if (s.includes('snow'))    return '❄️';
+  if (s.includes('mist') || s.includes('fog')) return '🌫️';
+  if (s.includes('cloud'))   return '☁️';
+  if (s.includes('clear'))   return '☀️';
   return '🌡️';
 }
 
-// ─── Error parser ─────────────────────────────────────────────────────────────
-function parseError(e) {
-  if (e.response) {
-    return `Server error ${e.response.status}: ${e.response.data?.error ?? 'Unknown error'}`;
-  }
-  if (e.message?.includes('Network') || e.message?.includes('ECONNREFUSED')) {
-    return 'Cannot reach backend. Make sure the Node.js server is running on port 5001.';
-  }
-  if (e.code === 'ECONNABORTED' || e.message?.includes('timeout')) {
-    return 'Request timed out. Check your network and server.';
-  }
-  return e.message ?? 'Unexpected error occurred.';
-}
-
-// ─── Stat tile ────────────────────────────────────────────────────────────────
-function StatTile({ emoji, label, value, color }) {
+function Tile({ emoji, label, value, color }) {
   return (
-    <View style={[t.tile, { borderTopColor: color }]}>
-      <Text style={t.tileEmoji}>{emoji}</Text>
-      <Text style={[t.tileVal, { color }]}>{value}</Text>
-      <Text style={t.tileLbl}>{label}</Text>
+    <View style={[t.tile, { borderTopColor:color }]}>
+      <Text style={t.emoji}>{emoji}</Text>
+      <Text style={[t.val, { color }]}>{value}</Text>
+      <Text style={t.lbl}>{label}</Text>
     </View>
   );
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WeatherScreen({ navigation }) {
   const [loading,    setLoading]    = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -110,357 +68,233 @@ export default function WeatherScreen({ navigation }) {
   const [errMsg,     setErrMsg]     = useState(null);
   const [lastFetch,  setLastFetch]  = useState(null);
   const [countdown,  setCountdown]  = useState(null);
-
   const isMounted = useRef(true);
   useEffect(() => () => { isMounted.current = false; }, []);
 
-  // ── Auto-refresh countdown ─────────────────────────────────────────────────
-  useEffect(() => {
-    if (countdown === null) return;
-    if (countdown <= 0) { fetchWeather(true); return; }
-    const t = setTimeout(() => {
-      if (isMounted.current) setCountdown((c) => c - 1);
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [countdown]);
-
-  // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchWeather = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setErrMsg(null);
-
     try {
-      // Fixed coordinates for black pepper farming region (Sri Lanka)
-      // Update these in src/config/api.js if your farm is elsewhere
-      const lat = 6.9147, lon = 79.9729; // default: Western Province, Sri Lanka
-
-      const res = await axios.get(`${WEATHER_URL}?lat=${lat}&lon=${lon}`, {
-        timeout: REQUEST_TIMEOUT_MS,
-      });
-
-      if (!res.data || typeof res.data !== 'object') {
-        throw new Error('Invalid response from weather server.');
-      }
-
+      const res = await axios.get(`${WEATHER_URL}?lat=6.9147&lon=79.9729`, { timeout: TIMEOUT_MS });
+      if (!res.data || typeof res.data !== 'object') throw new Error('Invalid weather response.');
       if (isMounted.current) {
         setWeather(res.data);
         setLastFetch(new Date().toLocaleTimeString());
-        setCountdown(AUTO_REFRESH_SECONDS);
+        setCountdown(AUTO_REFRESH);
       }
     } catch (e) {
       if (isMounted.current) {
-        setErrMsg(parseError(e));
+        const msg = e.response
+          ? `Server error ${e.response.status}`
+          : e.message?.match(/Network|ECONNREFUSED/i)
+            ? 'Cannot reach backend. Make sure it is running on port 5001.'
+            : e.code === 'ECONNABORTED' ? 'Request timed out.'
+            : e.message ?? 'Unexpected error.';
+        setErrMsg(msg);
         setCountdown(null);
       }
     } finally {
-      if (isMounted.current) {
-        setLoading(false);
-        setRefreshing(false);
-      }
+      if (isMounted.current) { setLoading(false); setRefreshing(false); }
     }
   }, []);
 
-  // Fetch on mount
-  useEffect(() => { fetchWeather(false); }, []);
+  useEffect(() => { fetchWeather(false); }, [fetchWeather]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchWeather(true);
-  }, [fetchWeather]);
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) { fetchWeather(true); return; }
+    const t = setTimeout(() => { if (isMounted.current) setCountdown(c => c - 1); }, 1000);
+    return () => clearTimeout(t);
+  }, [countdown, fetchWeather]);
 
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchWeather(true); }, [fetchWeather]);
   const tips = getFarmingTips(weather);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.root}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scroll}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={C.lime}
-            colors={[C.lime]}
-          />
-        }
-      >
-        {/* ── HERO ── */}
-        <LinearGradient colors={[C.bg0, C.bg2, C.pine]} style={s.hero}>
-          <View style={s.blob1} />
-          <View style={s.blob2} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+          tintColor={C.primary} colors={[C.primary]} />}>
 
+        {/* HERO */}
+        <LinearGradient colors={[C.gradStart, C.gradMid, C.gradEnd]} style={s.hero}>
           <View style={s.heroBadge}>
-            <View style={s.heroBadgeDot} />
+            <View style={s.heroDot} />
             <Text style={s.heroBadgeTxt}>🌤️ LIVE WEATHER STATION</Text>
           </View>
-
           <Text style={s.heroTitle}>Weather Monitor</Text>
-          <Text style={s.heroSub}>
-            Live conditions · Black pepper farming advisories{'\n'}
-            Auto-refreshes every {AUTO_REFRESH_SECONDS} seconds
-          </Text>
+          <Text style={s.heroSub}>Live conditions · Farming advisories · Auto-refreshes every {AUTO_REFRESH}s</Text>
 
-          {/* Status strip */}
           <View style={s.statusRow}>
-            <View style={s.statusItem}>
-              <Text style={s.statusVal}>{lastFetch ?? '—'}</Text>
-              <Text style={s.statusLbl}>Last Read</Text>
-            </View>
-            <View style={s.statusDiv} />
-            <View style={s.statusItem}>
-              <View style={[
-                s.onlinePill,
-                { backgroundColor: errMsg ? C.red + '22' : lastFetch ? C.green + '22' : C.amber + '22' },
-              ]}>
-                <View style={[
-                  s.onlineDot,
-                  { backgroundColor: errMsg ? C.red : lastFetch ? C.green : C.amber },
-                ]} />
-                <Text style={[
-                  s.onlineTxt,
-                  { color: errMsg ? C.red : lastFetch ? C.lime : C.amber },
-                ]}>
-                  {errMsg ? 'Offline' : lastFetch ? 'Online' : 'Ready'}
-                </Text>
-              </View>
-              <Text style={s.statusLbl}>Status</Text>
-            </View>
-            <View style={s.statusDiv} />
-            <View style={s.statusItem}>
-              <Text style={s.statusVal}>
-                {countdown != null ? `${countdown}s` : '—'}
-              </Text>
-              <Text style={s.statusLbl}>Refresh In</Text>
-            </View>
+            {[
+              { val:lastFetch ?? '—',                                              lbl:'Last Read'  },
+              { val:errMsg ? 'Offline' : lastFetch ? 'Online' : 'Ready',           lbl:'Status',    dot:true, dotColor: errMsg ? C.red : lastFetch ? '#69F0AE' : C.amber },
+              { val:countdown != null ? `${countdown}s` : '—',                    lbl:'Refresh In' },
+            ].map((item, i) => (
+              <React.Fragment key={item.lbl}>
+                {i > 0 && <View style={s.statusDiv} />}
+                <View style={s.statusItem}>
+                  {item.dot
+                    ? <View style={s.dotRow}><View style={[s.dot,{backgroundColor:item.dotColor}]}/><Text style={s.statusVal}>{item.val}</Text></View>
+                    : <Text style={s.statusVal}>{item.val}</Text>}
+                  <Text style={s.statusLbl}>{item.lbl}</Text>
+                </View>
+              </React.Fragment>
+            ))}
           </View>
         </LinearGradient>
 
-        {/* ── REFRESH BUTTON ── */}
+        {/* REFRESH BUTTON */}
         <View style={s.btnWrap}>
-          <TouchableOpacity
-            style={[s.refreshBtn, loading && s.refreshBtnDisabled]}
-            onPress={() => fetchWeather(false)}
-            disabled={loading}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Refresh weather"
-          >
-            <LinearGradient
-              colors={[C.lime, '#7ab84e']}
-              style={s.refreshBtnGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {loading
-                ? <ActivityIndicator color={C.bg0} />
-                : <Text style={s.refreshBtnTxt}>🌤️  Refresh Weather</Text>
-              }
-            </LinearGradient>
+          <TouchableOpacity style={[s.refreshBtn, loading && {opacity:0.6}]}
+            onPress={() => fetchWeather(false)} disabled={loading} activeOpacity={0.85}>
+            {loading
+              ? <ActivityIndicator color={C.white} />
+              : <Text style={s.refreshBtnTxt}>🌤️  Refresh Weather</Text>}
           </TouchableOpacity>
           <Text style={s.pullHint}>or pull down to refresh</Text>
         </View>
 
-        {/* ── ERROR CARD ── */}
+        {/* ERROR */}
         {!!errMsg && (
-          <View style={s.errorCard} accessibilityRole="alert">
-            <Text style={s.errorEmoji}>🔌</Text>
-            <View style={{ flex: 1 }}>
+          <View style={s.errorCard}>
+            <Ionicons name="cloud-offline-outline" size={28} color={C.error} />
+            <View style={{flex:1}}>
               <Text style={s.errorTitle}>Weather Unavailable</Text>
-              <Text style={s.errorReason}>{errMsg}</Text>
+              <Text style={s.errorSub}>{errMsg}</Text>
             </View>
-            <TouchableOpacity
-              style={s.retryBtn}
-              onPress={() => fetchWeather(false)}
-              activeOpacity={0.85}
-            >
-              <Text style={s.retryTxt}>🔄 Retry</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={() => fetchWeather(false)}>
+              <Text style={s.retryTxt}>Retry</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* ── MAIN WEATHER CARD ── */}
+        {/* MAIN WEATHER CARD */}
         {weather && (
           <>
             <View style={s.section}>
-              <LinearGradient
-                colors={[C.pine, C.bg2]}
-                style={s.mainCard}
-              >
-                <View style={s.mainCardBlob} />
-
+              <View style={s.mainCard}>
                 <View style={s.mainTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.cityName}>{weather.city ?? 'Current Location'}</Text>
-                    <Text style={s.condition}>
-                      {conditionEmoji(weather.weather)}  {weather.weather ?? '—'}
-                    </Text>
+                  <View style={{flex:1}}>
+                    <Text style={s.city}>{weather.city ?? 'Current Location'}</Text>
+                    <Text style={s.condition}>{condEmoji(weather.weather)}  {weather.weather ?? '—'}</Text>
                   </View>
                   <Text style={s.bigTemp}>{Math.round(weather.temperature ?? 0)}°</Text>
                 </View>
-
-                <Text style={s.feelsLike}>
-                  Feels like {Math.round(weather.feels_like ?? weather.temperature ?? 0)}°C
-                </Text>
-              </LinearGradient>
-            </View>
-
-            {/* ── STAT TILES ── */}
-            <View style={s.section}>
-              <Text style={s.sectionTitle}>📊 Conditions</Text>
-              <View style={s.tileGrid}>
-                <StatTile emoji="💧" label="Humidity"    value={`${weather.humidity ?? '—'}%`}          color={C.blue}   />
-                <StatTile emoji="💨" label="Wind"        value={`${weather.wind ?? '—'} m/s`}           color={C.teal}   />
-                <StatTile emoji="🌡️" label="Temperature" value={`${Math.round(weather.temperature ?? 0)}°C`} color={C.amber}  />
-                <StatTile emoji="🤗" label="Feels Like"  value={`${Math.round(weather.feels_like ?? weather.temperature ?? 0)}°C`} color={C.sage} />
+                <Text style={s.feelsLike}>Feels like {Math.round(weather.feels_like ?? weather.temperature ?? 0)}°C</Text>
               </View>
             </View>
 
-            {/* ── FARMING TIPS ── */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>📊 Conditions</Text>
+              <View style={s.tileGrid}>
+                <Tile emoji="💧" label="Humidity"    value={`${weather.humidity ?? '—'}%`}                                          color={C.blue}    />
+                <Tile emoji="💨" label="Wind"        value={`${weather.wind ?? '—'} m/s`}                                            color={C.teal}    />
+                <Tile emoji="🌡️" label="Temperature" value={`${Math.round(weather.temperature ?? 0)}°C`}                             color={C.warning} />
+                <Tile emoji="🤗" label="Feels Like"  value={`${Math.round(weather.feels_like ?? weather.temperature ?? 0)}°C`}        color={C.rose}    />
+              </View>
+            </View>
+
             {tips.length > 0 && (
               <View style={s.section}>
                 <Text style={s.sectionTitle}>🌿 Farming Advisories</Text>
-                <Text style={s.sectionSub}>
-                  AI-generated tips based on current weather conditions
-                </Text>
                 {tips.map((tip, i) => (
                   <View key={i} style={s.tipCard}>
-                    <Text style={s.tipEmoji}>{tip.emoji}</Text>
+                    <View style={[s.tipIconWrap, {backgroundColor:tip.color+'15'}]}>
+                      <Ionicons name={tip.icon} size={20} color={tip.color} />
+                    </View>
                     <Text style={s.tipTxt}>{tip.text}</Text>
                   </View>
                 ))}
               </View>
             )}
 
-            {/* ── QUICK NAV ── */}
             <View style={s.section}>
-              <TouchableOpacity
-                style={s.soilBtn}
-                onPress={() => navigation.navigate('SoilAnalysis')}
-                activeOpacity={0.85}
-              >
-                <LinearGradient
-                  colors={[C.lime, '#7ab84e']}
-                  style={s.soilBtnGrad}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={s.soilBtnTxt}>🌱  Check Soil Conditions →</Text>
-                </LinearGradient>
+              <TouchableOpacity style={s.navBtn} onPress={() => navigation.navigate('SoilAnalysis')} activeOpacity={0.85}>
+                <Ionicons name="leaf-outline" size={18} color={C.primary} />
+                <Text style={s.navBtnTxt}>Check Soil Conditions →</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.dashBtn}
-                onPress={() => navigation.navigate('Dashboard')}
-                activeOpacity={0.85}
-              >
-                <Text style={s.dashBtnTxt}>🗺️  View Farm Dashboard</Text>
+              <TouchableOpacity style={[s.navBtn, {marginTop:10, backgroundColor:C.xlight}]}
+                onPress={() => navigation.navigate('Dashboard')} activeOpacity={0.85}>
+                <Ionicons name="map-outline" size={18} color={C.primary} />
+                <Text style={s.navBtnTxt}>View Farm Dashboard →</Text>
               </TouchableOpacity>
             </View>
           </>
         )}
 
-        {/* ── EMPTY STATE ── */}
         {!weather && !loading && !errMsg && (
-          <View style={s.emptyWrap}>
-            <Text style={s.emptyEmoji}>🌤️</Text>
-            <Text style={s.emptyTitle}>Fetching weather…</Text>
-            <Text style={s.emptySub}>
-              Tap the button above to load live weather data for your location.
-            </Text>
+          <View style={s.empty}>
+            <Text style={{fontSize:56,marginBottom:16,opacity:0.4}}>🌤️</Text>
+            <Text style={s.emptyTitle}>Weather data loading…</Text>
+            <Text style={s.emptySub}>Tap Refresh to load live weather data.</Text>
           </View>
         )}
 
-        <View style={{ height: 30 }} />
+        <View style={{height:30}} />
       </ScrollView>
-
       <BottomNav navigation={navigation} active="Weather" />
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  root:   { flex: 1, backgroundColor: C.bg1 },
-  scroll: { paddingBottom: 16 },
+  root:   { flex:1, backgroundColor:C.bg },
+  scroll: { paddingBottom:16 },
 
-  // Hero
-  hero: { paddingTop: 56, paddingBottom: 32, paddingHorizontal: 22, overflow: 'hidden' },
-  blob1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: C.pine + 'aa', top: -80, right: -70 },
-  blob2: { position: 'absolute', width: 140, height: 140, borderRadius: 70,  backgroundColor: '#0a2a06aa', bottom: -40, left: -30 },
-  heroBadge:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.lime + '18', borderWidth: 1, borderColor: C.lime + '35', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, marginBottom: 14 },
-  heroBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.lime },
-  heroBadgeTxt: { fontSize: 10, color: C.lime, fontWeight: '800', letterSpacing: 1.5 },
-  heroTitle:    { fontSize: 28, fontWeight: '900', color: C.white, marginBottom: 8, letterSpacing: -0.5 },
-  heroSub:      { fontSize: 12, color: C.sage, lineHeight: 20, marginBottom: 20 },
+  hero:        { paddingTop:52, paddingBottom:24, paddingHorizontal:20 },
+  heroBadge:   { flexDirection:'row', alignItems:'center', gap:6, marginBottom:12 },
+  heroDot:     { width:7, height:7, borderRadius:4, backgroundColor:'rgba(255,255,255,0.8)' },
+  heroBadgeTxt:{ fontSize:10, color:'rgba(255,255,255,0.85)', fontWeight:'700', letterSpacing:1.8 },
+  heroTitle:   { fontSize:26, fontWeight:'900', color:C.white, marginBottom:6 },
+  heroSub:     { fontSize:12, color:'rgba(255,255,255,0.82)', lineHeight:18, marginBottom:16 },
 
-  // Status strip
-  statusRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: C.border, paddingVertical: 12, paddingHorizontal: 16 },
-  statusItem: { flex: 1, alignItems: 'center' },
-  statusVal:  { fontSize: 14, fontWeight: '900', color: C.white, marginBottom: 3 },
-  statusLbl:  { fontSize: 9, fontWeight: '600', color: C.dim, textTransform: 'uppercase', letterSpacing: 0.5 },
-  statusDiv:  { width: 1, height: 28, backgroundColor: C.border },
-  onlinePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, marginBottom: 3 },
-  onlineDot:  { width: 6, height: 6, borderRadius: 3 },
-  onlineTxt:  { fontSize: 12, fontWeight: '700' },
+  statusRow:  { flexDirection:'row', backgroundColor:'rgba(255,255,255,0.18)', borderRadius:14, padding:12 },
+  statusItem: { flex:1, alignItems:'center' },
+  statusVal:  { fontSize:13, fontWeight:'800', color:C.white, marginBottom:2 },
+  statusLbl:  { fontSize:9, color:'rgba(255,255,255,0.7)', fontWeight:'600', letterSpacing:0.5 },
+  statusDiv:  { width:1, backgroundColor:'rgba(255,255,255,0.3)', marginVertical:4 },
+  dotRow:     { flexDirection:'row', alignItems:'center', gap:5, marginBottom:2 },
+  dot:        { width:7, height:7, borderRadius:4 },
 
-  // Button
-  btnWrap:           { padding: 20, paddingBottom: 8 },
-  refreshBtn:        { borderRadius: 16, overflow: 'hidden', ...SHADOW.md },
-  refreshBtnDisabled:{ opacity: 0.6 },
-  refreshBtnGrad:    { paddingVertical: 17, alignItems: 'center' },
-  refreshBtnTxt:     { color: C.bg0, fontSize: 16, fontWeight: '800' },
-  pullHint:          { textAlign: 'center', fontSize: 10, color: C.dim, marginTop: 6 },
+  btnWrap:      { padding:16, paddingBottom:8 },
+  refreshBtn:   { backgroundColor:C.primary, borderRadius:14, paddingVertical:15, alignItems:'center', ...SHADOW.md },
+  refreshBtnTxt:{ color:C.white, fontSize:15, fontWeight:'800' },
+  pullHint:     { textAlign:'center', fontSize:10, color:C.hint, marginTop:6 },
 
-  // Warnings
-  warnPill: { marginHorizontal: 16, backgroundColor: 'rgba(255,248,225,0.07)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,224,130,0.3)', marginBottom: 12 },
-  warnTxt:  { fontSize: 12, color: C.amber, lineHeight: 18 },
+  errorCard:  { marginHorizontal:16, backgroundColor:C.white, borderRadius:16, padding:16, borderWidth:1.5, borderColor:C.error+'44', marginBottom:14, flexDirection:'row', alignItems:'center', gap:12, ...SHADOW.sm },
+  errorTitle: { fontSize:14, fontWeight:'800', color:C.error, marginBottom:3 },
+  errorSub:   { fontSize:12, color:C.text3, lineHeight:17 },
+  retryBtn:   { backgroundColor:C.error, borderRadius:10, paddingVertical:8, paddingHorizontal:14 },
+  retryTxt:   { color:C.white, fontSize:12, fontWeight:'700' },
 
-  // Error
-  errorCard:   { marginHorizontal: 16, backgroundColor: C.bg3, borderRadius: 20, padding: 20, borderWidth: 1.5, borderColor: '#7f1d1d', marginBottom: 14, flexDirection: 'row', alignItems: 'flex-start', gap: 12, ...SHADOW.md },
-  errorEmoji:  { fontSize: 28 },
-  errorTitle:  { fontSize: 15, fontWeight: '800', color: '#fca5a5', marginBottom: 4 },
-  errorReason: { fontSize: 12, color: '#888', lineHeight: 18, marginBottom: 10 },
-  retryBtn:    { backgroundColor: C.pine, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start', marginTop: 4 },
-  retryTxt:    { color: C.lime, fontSize: 13, fontWeight: '700' },
+  section:      { paddingHorizontal:16, paddingBottom:10 },
+  sectionTitle: { fontSize:17, fontWeight:'800', color:C.text, marginBottom:12 },
 
-  // Section
-  section:      { paddingHorizontal: 16, paddingBottom: 10 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: C.white, marginBottom: 4 },
-  sectionSub:   { fontSize: 11, color: C.muted, marginBottom: 12, lineHeight: 16 },
+  mainCard:  { backgroundColor:C.white, borderRadius:20, padding:20, borderWidth:1, borderColor:C.border, ...SHADOW.md },
+  mainTop:   { flexDirection:'row', alignItems:'flex-start', marginBottom:6 },
+  city:      { fontSize:20, fontWeight:'900', color:C.text, marginBottom:4 },
+  condition: { fontSize:14, color:C.text3, textTransform:'capitalize' },
+  bigTemp:   { fontSize:64, fontWeight:'900', color:C.primary, lineHeight:68 },
+  feelsLike: { fontSize:12, color:C.text3 },
 
-  // Main weather card
-  mainCard:     { borderRadius: 24, padding: 24, overflow: 'hidden', marginBottom: 4, ...SHADOW.lg },
-  mainCardBlob: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -40 },
-  mainTop:      { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  cityName:     { fontSize: 22, fontWeight: '900', color: C.white, marginBottom: 6 },
-  condition:    { fontSize: 14, color: C.lime, textTransform: 'capitalize' },
-  bigTemp:      { fontSize: 72, fontWeight: '900', color: C.white, lineHeight: 76 },
-  feelsLike:    { fontSize: 13, color: 'rgba(255,255,255,0.6)' },
+  tileGrid: { flexDirection:'row', flexWrap:'wrap', gap:10 },
 
-  // Stat tiles
-  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tipCard:     { flexDirection:'row', alignItems:'center', gap:12, backgroundColor:C.white, borderRadius:14, padding:14, marginBottom:10, borderWidth:1, borderColor:C.border, ...SHADOW.xs },
+  tipIconWrap: { width:40, height:40, borderRadius:12, justifyContent:'center', alignItems:'center', flexShrink:0 },
+  tipTxt:      { flex:1, fontSize:13, color:C.text2, lineHeight:19 },
+
+  navBtn:    { flexDirection:'row', alignItems:'center', gap:10, backgroundColor:C.surface2, borderRadius:14, padding:16, borderWidth:1, borderColor:C.border },
+  navBtnTxt: { flex:1, fontSize:14, fontWeight:'700', color:C.primary },
+
+  empty:      { padding:60, alignItems:'center' },
+  emptyTitle: { fontSize:18, fontWeight:'700', color:C.text2, marginBottom:6 },
+  emptySub:   { fontSize:13, color:C.text3, textAlign:'center' },
 });
 
 const t = StyleSheet.create({
-  tile:      { flex: 1, minWidth: '45%', backgroundColor: C.bg3, borderRadius: 16, padding: 16, borderTopWidth: 3, alignItems: 'center', borderWidth: 1, borderColor: C.border, ...SHADOW.sm },
-  tileEmoji: { fontSize: 22, marginBottom: 6 },
-  tileVal:   { fontSize: 20, fontWeight: '900', marginBottom: 2 },
-  tileLbl:   { fontSize: 10, color: C.dim, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-});
-
-// Farming tips (reuse s styles below)
-Object.assign(s, {
-  tipCard: { backgroundColor: C.bg3, borderRadius: 14, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderWidth: 1, borderColor: C.border, ...SHADOW.sm },
-  tipEmoji:{ fontSize: 20, flexShrink: 0, marginTop: 1 },
-  tipTxt:  { flex: 1, fontSize: 13, color: C.sage, lineHeight: 20 },
-  soilBtn:     { borderRadius: 14, overflow: 'hidden', marginBottom: 12, ...SHADOW.md },
-  soilBtnGrad: { paddingVertical: 16, alignItems: 'center' },
-  soilBtnTxt:  { color: C.bg0, fontSize: 15, fontWeight: '800' },
-  dashBtn:     { paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', backgroundColor: C.bg3 },
-  dashBtnTxt:  { color: C.lime, fontSize: 14, fontWeight: '700' },
-  emptyWrap:   { padding: 60, alignItems: 'center' },
-  emptyEmoji:  { fontSize: 64, marginBottom: 18, opacity: 0.5 },
-  emptyTitle:  { fontSize: 20, fontWeight: '800', color: C.white, marginBottom: 8 },
-  emptySub:    { fontSize: 13, color: C.muted, textAlign: 'center', lineHeight: 20, maxWidth: 300 },
+  tile:  { flex:1, minWidth:'45%', backgroundColor:C.white, borderRadius:14, padding:14, borderTopWidth:3, alignItems:'center', borderWidth:1, borderColor:C.border, ...SHADOW.sm },
+  emoji: { fontSize:22, marginBottom:6 },
+  val:   { fontSize:20, fontWeight:'900', marginBottom:2 },
+  lbl:   { fontSize:10, color:C.text3, fontWeight:'600', textTransform:'uppercase', letterSpacing:0.5 },
 });

@@ -1,32 +1,34 @@
-// src/components/BottomNav.js
-// Shared bottom navigation bar — all main modules
+// src/components/BottomNav.js — Premium v4
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { C, SHADOW } from './theme';
 
 const TABS = [
-  { label:'Home',    emoji:'🏠', screen:'Home'                },
-  { label:'Soil',    emoji:'🌱', screen:'SoilAnalysis'        },
-  { label:'Disease', emoji:'🔬', screen:'DiseaseIdentification'},
-  { label:'Variety', emoji:'🫑', screen:'VarietyHub'          },
-  { label:'Map',     emoji:'🗺️', screen:'Dashboard'           },
+  { label:'Home',    icon:'home-outline',       iconOn:'home',            screen:'Home'                  },
+  { label:'Soil',    icon:'leaf-outline',        iconOn:'leaf',            screen:'SoilAnalysis'          },
+  { label:'Disease', icon:'bug-outline',         iconOn:'bug',             screen:'DiseaseIdentification' },
+  { label:'Variety', icon:'scan-outline',        iconOn:'scan',            screen:'VarietyHub'            },
+  { label:'Map',     icon:'map-outline',         iconOn:'map',             screen:'Dashboard'             },
 ];
 
 export default function BottomNav({ navigation, active }) {
   return (
     <View style={s.bar}>
       {TABS.map(tab => {
-        const isActive = tab.label === active || tab.screen === active;
+        const on = tab.label === active || tab.screen === active;
         return (
           <TouchableOpacity
             key={tab.screen}
             style={s.tab}
-            onPress={() => !isActive && navigation.navigate(tab.screen)}
-            activeOpacity={0.75}
+            onPress={() => !on && navigation.navigate(tab.screen)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={tab.label}
           >
-            <Text style={[s.emoji, isActive && s.emojiActive]}>{tab.emoji}</Text>
-            <Text style={[s.label, isActive && s.labelActive]}>{tab.label}</Text>
-            {isActive && <View style={s.activeDot} />}
+            {on && <View style={s.pill} />}
+            <Ionicons name={on ? tab.iconOn : tab.icon} size={22} color={on ? C.lime : C.dim} />
+            <Text style={[s.lbl, on && s.lblOn]}>{tab.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -36,19 +38,14 @@ export default function BottomNav({ navigation, active }) {
 
 const s = StyleSheet.create({
   bar: {
-    flexDirection:'row',
-    backgroundColor: C.bg2,
-    borderTopWidth:1,
-    borderTopColor: C.border,
-    paddingBottom: Platform.OS==='ios' ? 24 : 10,
-    paddingTop:8,
-    paddingHorizontal:4,
+    flexDirection:'row', backgroundColor:C.bg2,
+    borderTopWidth:1, borderTopColor:C.border,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingTop:10,
     ...SHADOW.md,
   },
-  tab:         { flex:1, alignItems:'center', gap:3, paddingVertical:4, position:'relative' },
-  emoji:       { fontSize:20 },
-  emojiActive: { transform:[{ scale:1.12 }] },
-  label:       { fontSize:10, color:C.dim,  fontWeight:'600' },
-  labelActive: { color:C.lime, fontWeight:'800' },
-  activeDot:   { position:'absolute', top:0, width:4, height:4, borderRadius:2, backgroundColor:C.lime },
+  tab:   { flex:1, alignItems:'center', justifyContent:'center', position:'relative' },
+  pill:  { position:'absolute', top:-10, width:40, height:3, borderRadius:2, backgroundColor:C.lime },
+  lbl:   { fontSize:10, fontWeight:'600', color:C.dim, marginTop:4 },
+  lblOn: { color:C.lime, fontWeight:'700' },
 });

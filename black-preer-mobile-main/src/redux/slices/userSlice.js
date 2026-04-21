@@ -1,45 +1,25 @@
-// src/redux/slices/userSlice.js
+// src/redux/slices/userSlice.js — v4
 import { createSlice } from '@reduxjs/toolkit';
-
-const initialState = {
-  currentUser: null,
-  loading:     false,
-  error:       null,
-};
 
 const userSlice = createSlice({
   name: 'user',
-  initialState,
+  initialState: { currentUser:null, isAuthenticated:false, loading:false, error:null },
   reducers: {
-    signInStart(state) {
-      state.loading = true;
-      state.error   = null;
-    },
-    signInSuccess(state, action) {
-      state.currentUser = action.payload;
-      state.loading     = false;
-      state.error       = null;
-    },
-    signInFailure(state, action) {
-      state.loading = false;
-      state.error   = action.payload;
-    },
-    signOut(state) {
-      state.currentUser = null;
-      state.error       = null;
-      state.loading     = false;
-    },
+    signInStart:   (s) => { s.loading=true; s.error=null; },
+    signInSuccess: (s,{payload}) => { s.currentUser=payload; s.isAuthenticated=true; s.loading=false; s.error=null; },
+    signInFailure: (s,{payload}) => { s.loading=false; s.error=payload; s.isAuthenticated=false; },
+    signOut:       (s) => { s.currentUser=null; s.isAuthenticated=false; s.error=null; s.loading=false; },
+    clearError:    (s) => { s.error=null; },
+    updateProfile: (s,{payload}) => { if(s.currentUser) s.currentUser={...s.currentUser,...payload}; },
   },
 });
 
-export const {
-  signInStart,
-  signInSuccess,
-  signInFailure,
-  signOut,
-} = userSlice.actions;
+export const { signInStart, signInSuccess, signInFailure, signOut, clearError, updateProfile } = userSlice.actions;
+export const setUser = signInSuccess; // backward compat
 
-// Alias used by SignInScreen and SignUpScreen
-export const setUser = signInSuccess;
+export const selectCurrentUser     = s => s.user.currentUser;
+export const selectIsAuthenticated = s => s.user.isAuthenticated;
+export const selectAuthLoading     = s => s.user.loading;
+export const selectAuthError       = s => s.user.error;
 
 export default userSlice.reducer;
