@@ -1,0 +1,14 @@
+## Recommended Python dependencies for backend model inference
+# Adjust versions to match your environment. For CPU-only systems prefer `tensorflow-cpu`.
+
+numpy>=1.21
+Pillow>=9.0
+joblib>=1.2
+scikit-learn>=1.2
+# Choose one of the following TensorFlow packages depending on your environment
+# tensorflow>=2.12    # (may pull GPU-enabled builds depending on your pip config)
+tensorflow-cpu>=2.12
+
+# Optional (if your models require them):
+# pandas
+# matplotlib

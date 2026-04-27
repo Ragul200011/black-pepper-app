@@ -1,0 +1,117 @@
+# 🚀 Black Pepper AI — Run & Setup Guide (cleaned)
+
+This guide shows how to start the Node.js backend API and the Expo React Native frontend locally. It uses relative project paths and gives explicit instructions for emulator vs device testing.
+
+Prerequisites
+- Node.js (LTS) and npm
+- Python 3.8+ (for model inference) and pip
+- Expo CLI (optional) — `npm install -g expo-cli` or use `npx expo`
+- Android Studio + Android Emulator (for Android testing) or Expo Go on a physical device
+
+Notes
+- Backend default port: `5001`. Frontend expects the backend at `http://<DEV_HOST>:5001` (see instructions below).
+- If you plan to test on a physical device, set `DEV_HOST` in `src/config/api.js` to your machine's LAN IP (e.g. `192.168.1.25`).
+
+---
+
+## 1) Start the Backend (Node.js + Python models)
+
+1. Open a terminal and change into the `backend` directory (relative to repo root):
+
+```bash
+cd backend
+```
+
+2. Install Node dependencies:
+
+```bash
+npm install
+```
+
+3. Ensure Python dependencies are installed. Create a virtual environment and install packages (recommended):
+
+```bash
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+If you cannot use the `requirements.txt` file, at minimum install: `numpy`, `Pillow`, `joblib`, `scikit-learn`, and `tensorflow` (or `tensorflow-cpu`) as required by your models.
+
+4. Place your trained models under `backend/models/`:
+- `effnet_disease.keras`
+- `leaf_detector.keras`
+- `stageA_saved_model/` (SavedModel format)
+- `stageB_saved_model/` (SavedModel format)
+
+5. Start the server:
+
+```bash
+npm start
+# or
+node server.js
+```
+
+6. Verify the backend is running:
+
+Open `http://localhost:5001/health` in your browser (or `http://<YOUR_HOST>:5001` when using a custom host).
+
+Expected response (JSON) with `status: "ok"` and available routes.
+
+---
+
+## 2) Start the Frontend (Expo)
+
+1. Open another terminal and change to the mobile app folder:
+
+```bash
+cd black-pepper-mobile-main
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Configure backend host used by the app for device testing:
+- Edit `src/config/api.js` and set `DEV_HOST` to `127.0.0.1` (iOS simulator), `10.0.2.2` (Android emulator), or your machine LAN IP (real device).
+
+4. Start Expo:
+
+```bash
+npx expo start
+```
+
+5. Run on an emulator or device:
+- Android emulator: choose `Run on Android device/emulator` in Expo DevTools or run `npm run android`.
+- iOS simulator (macOS only): run `npm run ios`.
+- Physical device: scan the QR code with Expo Go (ensure `DEV_HOST` points to your machine IP and your device is on the same network).
+
+---
+
+## 3) Quick Verification Steps
+
+- Open the mobile app and navigate to `Dashboard` → `Farm Map`. Pins should display farm details.
+- Open `Soil Monitor` and confirm the call to `/api/soil-analysis` returns JSON (check backend logs).
+- Upload a leaf image via `Disease Detection` → `Upload` and observe backend predictions (backend console will show Python output).
+
+---
+
+## Troubleshooting
+
+- If the app cannot reach the backend from a physical device, ensure:
+  - `DEV_HOST` in `src/config/api.js` is set to your machine LAN IP (not `localhost`).
+  - Any firewall rules allow incoming connections on port 5001.
+- If TensorFlow model loading fails, confirm model files exist under `backend/models` and that you installed the correct TensorFlow package for your OS/hardware.
+- For Android emulator use `10.0.2.2` as `DEV_HOST`. For iOS simulator use `127.0.0.1`.
+
+---
+
+If you'd like, I can also:
+- Add a `.env.example` and update the backend to read missing envs more gracefully.
+- Create a `requirements.txt` in `backend/` with recommended Python packages.
+- Add an npm script `start:dev` that uses `cross-env` to override `DEV_HOST` at runtime.
+
+Let me know which of these you'd like me to add now.

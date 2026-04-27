@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Black Pepper AI",
+    "slug": "black-pepper-ai",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2E7D32"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sliit.blackpepperai",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Used to select leaf images for disease and variety detection.",
+        "NSCameraUsageDescription": "Used to capture leaf images for AI analysis.",
+        "NSLocationWhenInUseUsageDescription": "Used to show your location on the farm map."
+      }
+    },
+    "android": {
+      "package": "com.sliit.blackpepperai",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2E7D32"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Black Pepper AI"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    }
+  }
+}
