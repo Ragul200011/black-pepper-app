@@ -1,15 +1,11 @@
 import os
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-
 import json
 import sys
 import warnings
 import traceback
 
 import numpy as np  # type: ignore
-import tensorflow as tf  # type: ignore
 from PIL import Image  # type: ignore
 
 warnings.filterwarnings("ignore")
@@ -41,15 +37,24 @@ DISPLAY_NAMES = {"healthy": "Healthy", "leaf_blight": "Leaf Blight", "slow_wilt"
 DISEASE_INFO = {
     "healthy": {
         "description": "No disease detected. The leaf appears healthy.",
-        "advice": "Maintain regular watering, balanced fertilization, and monitor plants regularly.",
+        "advice": (
+            "Maintain regular watering and balanced fertilization. "
+            "Monitor plants regularly for early signs of stress."
+        ),
     },
     "leaf_blight": {
         "description": "Leaf Blight detected.",
-        "advice": "Remove infected leaves, improve air circulation, avoid prolonged leaf wetness, and follow local guidance for copper-based fungicide use.",
+        "advice": (
+            "Remove infected leaves and improve air circulation. "
+            "Avoid prolonged leaf wetness and follow local guidance for treatment."
+        ),
     },
     "slow_wilt": {
         "description": "Slow Wilt detected.",
-        "advice": "Improve soil drainage, avoid waterlogging, prune affected parts, and follow local agricultural guidance for treatment.",
+        "advice": (
+            "Improve soil drainage and avoid waterlogging. "
+            "Prune affected parts and follow local agricultural guidance."
+        ),
     },
 }
 
@@ -59,6 +64,15 @@ leaf_detector = None
 
 def load_models():
     global disease_model, leaf_detector
+
+    # TensorFlow needs some environment variables configured before import.
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+    os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
+    try:
+        import tensorflow as tf  # type: ignore
+    except Exception as exc:  # pragma: no cover - runtime-only
+        raise RuntimeError(f"Failed to import tensorflow: {exc}")
 
     if not os.path.exists(DISEASE_MODEL_PATH):
         raise FileNotFoundError(f"Disease model not found: {DISEASE_MODEL_PATH}")
@@ -107,7 +121,10 @@ def predict_image(image_path: str) -> dict:
             "all_probabilities": {},
             "model_name": "leaf_detector",
             "description": None,
-            "advice": "Please upload a clear black pepper leaf image with good lighting and a simple background.",
+            "advice": (
+                "Please upload a clear black pepper leaf image with good lighting "
+                "and a simple background."
+            ),
         }
 
     # Stage 2: disease classifier
@@ -153,7 +170,10 @@ def predict_image(image_path: str) -> dict:
                 "all_probabilities": all_probs,
                 "model_name": MODEL_NAME,
                 "description": "The leaf appears mostly healthy, but the model confidence is low.",
-                "advice": "Monitor the leaf over time and upload a clearer close-up image if symptoms increase.",
+                "advice": (
+                    "Monitor the leaf over time and upload a clearer close-up "
+                    "image if symptoms increase."
+                ),
             }
 
         possible_label = DISPLAY_NAMES.get(pred_label, pred_label)
@@ -167,15 +187,23 @@ def predict_image(image_path: str) -> dict:
             "pepper_score": round(pepper_score * 100, 2),
             "all_probabilities": all_probs,
             "model_name": MODEL_NAME,
-            "description": f"The leaf may show early signs of {possible_label}, but the confidence is low.",
-            "advice": "This may be a mild or early-stage infection. Capture a closer image in good lighting and monitor symptom progression.",
+            "description": (
+                f"The leaf may show early signs of {possible_label}, " f"but the confidence is low."
+            ),
+            "advice": (
+                "This may be a mild or early-stage infection. Capture a closer "
+                "image in good lighting and monitor symptom progression."
+            ),
         }
 
     # very uncertain result -> reject as unclear
     return {
         "rejected": True,
         "low_confidence": False,
-        "reject_reason": f"Image is unclear or not reliable for disease detection (top disease confidence: {conf_pct:.1f}%).",
+        "reject_reason": (
+            f"Image is unclear or not reliable for disease detection "
+            f"(top disease confidence: {conf_pct:.1f}%)."
+        ),
         "prediction": None,
         "confidence": round(conf_pct, 2),
         "raw_detector_score": round(raw_score * 100, 2),
@@ -183,7 +211,10 @@ def predict_image(image_path: str) -> dict:
         "all_probabilities": all_probs,
         "model_name": MODEL_NAME,
         "description": None,
-        "advice": "Please upload a clearer black pepper leaf image with good lighting and a simple background.",
+        "advice": (
+            "Please upload a clearer black pepper leaf image with good lighting "
+            "and a simple background."
+        ),
     }
 
 
@@ -205,7 +236,12 @@ def main():
         sys.exit(0)
     except Exception as e:
         print(
-            json.dumps({"error": f"Prediction failed: {str(e)}", "trace": traceback.format_exc()})
+            json.dumps(
+                {
+                    "error": f"Prediction failed: {str(e)}",
+                    "trace": traceback.format_exc(),
+                }
+            )
         )
         sys.exit(1)
 

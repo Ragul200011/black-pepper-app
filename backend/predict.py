@@ -39,7 +39,8 @@ if MODEL_DIR is None:
                 "fix": (
                     "Place model_results_smote/ folder next to backend/ folder, "
                     "OR inside backend/. It must contain: "
-                    "hybrid_ensemble_model.pkl, scaler.pkl, label_encoder.pkl"
+                    "hybrid_ensemble_model.pkl, scaler.pkl, "
+                    "label_encoder.pkl"
                 ),
             }
         )
@@ -63,7 +64,10 @@ def init():
                 {
                     "error": f"Failed to load model files: {str(e)}",
                     "model_dir": MODEL_DIR,
-                    "fix": "Ensure hybrid_ensemble_model.pkl, scaler.pkl, label_encoder.pkl exist in the folder above",
+                    "fix": (
+                        "Ensure hybrid_ensemble_model.pkl, scaler.pkl, "
+                        "label_encoder.pkl exist in the folder above"
+                    ),
                 }
             )
         )

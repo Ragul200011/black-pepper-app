@@ -84,11 +84,13 @@ def main():
 
         if stageA_label != "pepper_leaf":
             result["stageA_warning"] = (
-                "Stage A classified this image as non-pepper, but variety prediction was still attempted."
+                "Stage A classified this image as non-pepper, "
+                "but variety prediction was still attempted."
             )
         elif stageA_conf < STAGEA_THRESHOLD:
             result["stageA_warning"] = (
-                "Pepper leaf detected with low confidence, but variety prediction was still attempted."
+                "Pepper leaf detected with low confidence, "
+                "but variety prediction was still attempted."
             )
 
         # Stage B: variety classification
