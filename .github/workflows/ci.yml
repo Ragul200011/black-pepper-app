@@ -1,0 +1,40 @@
+name: CI - Basic Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  python-check:
+    name: Python Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Find Python files
+        run: |
+          echo "Checking python files for syntax errors"
+          python -m py_compile $(git ls-files 'backend/**/*.py' 'backend/*.py' || true)
+
+  node-install:
+    name: Node install (mobile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install mobile dependencies
+        run: |
+          cd black-pepper-mobile-main
+          npm ci --no-audit --no-fund
+      - name: Basic node check
+        run: |
+          node -v
+          npm -v
