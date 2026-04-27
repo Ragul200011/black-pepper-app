@@ -40,5 +40,14 @@
     "react-redux": "^9.1.0",
     "redux-persist": "^6.0.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@react-native-community/eslint-config": "^3.2.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-native": "^5.0.0",
+    "prettier": "^3.8.3"
+  }
 }

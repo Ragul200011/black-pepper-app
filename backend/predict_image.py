@@ -1,4 +1,5 @@
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
@@ -35,24 +36,20 @@ LOW_CONFIDENCE_THRESHOLD = 40.0
 # must match training order exactly
 CLASS_NAMES = ["healthy", "leaf_blight", "slow_wilt"]
 
-DISPLAY_NAMES = {
-    "healthy": "Healthy",
-    "leaf_blight": "Leaf Blight",
-    "slow_wilt": "Slow Wilt"
-}
+DISPLAY_NAMES = {"healthy": "Healthy", "leaf_blight": "Leaf Blight", "slow_wilt": "Slow Wilt"}
 
 DISEASE_INFO = {
     "healthy": {
         "description": "No disease detected. The leaf appears healthy.",
-        "advice": "Maintain regular watering, balanced fertilization, and monitor plants regularly."
+        "advice": "Maintain regular watering, balanced fertilization, and monitor plants regularly.",
     },
     "leaf_blight": {
         "description": "Leaf Blight detected.",
-        "advice": "Remove infected leaves, improve air circulation, avoid prolonged leaf wetness, and follow local guidance for copper-based fungicide use."
+        "advice": "Remove infected leaves, improve air circulation, avoid prolonged leaf wetness, and follow local guidance for copper-based fungicide use.",
     },
     "slow_wilt": {
         "description": "Slow Wilt detected.",
-        "advice": "Improve soil drainage, avoid waterlogging, prune affected parts, and follow local agricultural guidance for treatment."
+        "advice": "Improve soil drainage, avoid waterlogging, prune affected parts, and follow local agricultural guidance for treatment.",
     },
 }
 
@@ -110,7 +107,7 @@ def predict_image(image_path: str) -> dict:
             "all_probabilities": {},
             "model_name": "leaf_detector",
             "description": None,
-            "advice": "Please upload a clear black pepper leaf image with good lighting and a simple background."
+            "advice": "Please upload a clear black pepper leaf image with good lighting and a simple background.",
         }
 
     # Stage 2: disease classifier
@@ -123,10 +120,10 @@ def predict_image(image_path: str) -> dict:
 
     # high-confidence normal result
     if conf_pct >= DISEASE_THRESHOLD:
-        info = DISEASE_INFO.get(pred_label, {
-            "description": "Unknown prediction.",
-            "advice": "Consult an agricultural expert."
-        })
+        info = DISEASE_INFO.get(
+            pred_label,
+            {"description": "Unknown prediction.", "advice": "Consult an agricultural expert."},
+        )
 
         return {
             "rejected": False,
@@ -139,7 +136,7 @@ def predict_image(image_path: str) -> dict:
             "all_probabilities": all_probs,
             "model_name": MODEL_NAME,
             "description": info["description"],
-            "advice": info["advice"]
+            "advice": info["advice"],
         }
 
     # medium-confidence result -> possible early / mild infection
@@ -156,7 +153,7 @@ def predict_image(image_path: str) -> dict:
                 "all_probabilities": all_probs,
                 "model_name": MODEL_NAME,
                 "description": "The leaf appears mostly healthy, but the model confidence is low.",
-                "advice": "Monitor the leaf over time and upload a clearer close-up image if symptoms increase."
+                "advice": "Monitor the leaf over time and upload a clearer close-up image if symptoms increase.",
             }
 
         possible_label = DISPLAY_NAMES.get(pred_label, pred_label)
@@ -171,7 +168,7 @@ def predict_image(image_path: str) -> dict:
             "all_probabilities": all_probs,
             "model_name": MODEL_NAME,
             "description": f"The leaf may show early signs of {possible_label}, but the confidence is low.",
-            "advice": "This may be a mild or early-stage infection. Capture a closer image in good lighting and monitor symptom progression."
+            "advice": "This may be a mild or early-stage infection. Capture a closer image in good lighting and monitor symptom progression.",
         }
 
     # very uncertain result -> reject as unclear
@@ -186,7 +183,7 @@ def predict_image(image_path: str) -> dict:
         "all_probabilities": all_probs,
         "model_name": MODEL_NAME,
         "description": None,
-        "advice": "Please upload a clearer black pepper leaf image with good lighting and a simple background."
+        "advice": "Please upload a clearer black pepper leaf image with good lighting and a simple background.",
     }
 
 
@@ -207,10 +204,9 @@ def main():
         print(json.dumps(result))
         sys.exit(0)
     except Exception as e:
-        print(json.dumps({
-            "error": f"Prediction failed: {str(e)}",
-            "trace": traceback.format_exc()
-        }))
+        print(
+            json.dumps({"error": f"Prediction failed: {str(e)}", "trace": traceback.format_exc()})
+        )
         sys.exit(1)
 
 

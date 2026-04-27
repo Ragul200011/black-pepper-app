@@ -32,10 +32,7 @@ def load_models():
 
         return stageA_model, variety_model
     except Exception as e:
-        print(json.dumps({
-            "accepted": False,
-            "error": f"Failed to load models: {str(e)}"
-        }))
+        print(json.dumps({"accepted": False, "error": f"Failed to load models: {str(e)}"}))
         sys.exit(1)
 
 
@@ -82,16 +79,17 @@ def main():
 
         result = {
             "accepted": True,
-            "stageA": {
-                "label": stageA_label,
-                "confidence": round(stageA_conf * 100, 2)
-            }
+            "stageA": {"label": stageA_label, "confidence": round(stageA_conf * 100, 2)},
         }
 
         if stageA_label != "pepper_leaf":
-            result["stageA_warning"] = "Stage A classified this image as non-pepper, but variety prediction was still attempted."
+            result["stageA_warning"] = (
+                "Stage A classified this image as non-pepper, but variety prediction was still attempted."
+            )
         elif stageA_conf < STAGEA_THRESHOLD:
-            result["stageA_warning"] = "Pepper leaf detected with low confidence, but variety prediction was still attempted."
+            result["stageA_warning"] = (
+                "Pepper leaf detected with low confidence, but variety prediction was still attempted."
+            )
 
         # Stage B: variety classification
         x_variety = prepare_variety_image(img_path)
@@ -101,16 +99,15 @@ def main():
         variety_label = VARIETY_CLASSES[variety_idx]
         variety_conf = float(variety_probs[variety_idx])
 
-        result["prediction"] = {
-            "label": variety_label,
-            "confidence": round(variety_conf * 100, 2)
-        }
+        result["prediction"] = {"label": variety_label, "confidence": round(variety_conf * 100, 2)}
         result["probabilities"] = {
             VARIETY_CLASSES[i]: round(float(variety_probs[i]) * 100, 2)
             for i in range(len(VARIETY_CLASSES))
         }
 
-        result["message"] = "ok" if variety_conf >= VARIETY_THRESHOLD else "Variety prediction confidence is low."
+        result["message"] = (
+            "ok" if variety_conf >= VARIETY_THRESHOLD else "Variety prediction confidence is low."
+        )
 
         print(json.dumps(result))
 
