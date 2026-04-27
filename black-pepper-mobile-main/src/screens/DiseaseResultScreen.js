@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 import {
   View,
   Text,
@@ -9,29 +9,22 @@ import {
   Alert,
   Dimensions,
   Platform,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get("window");
+const { width } = Dimensions.get('window');
 
 const isSmallScreen = width < 480;
 const isWideScreen = width >= 768;
 
 export default function DiseaseResultScreen({ route, navigation }) {
-  const {
-    image,
-    disease,
-    confidence,
-    treatment,
-    description,
-    probabilities,
-    lowConfidence,
-  } = route.params;
+  const { image, disease, confidence, treatment, description, probabilities, lowConfidence } =
+    route.params;
 
   const getSafeImageForHistory = (uri) => {
-    if (!uri || typeof uri !== "string") return null;
-    if (Platform.OS === "web" && uri.startsWith("blob:")) return null;
+    if (!uri || typeof uri !== 'string') return null;
+    if (Platform.OS === 'web' && uri.startsWith('blob:')) return null;
     return uri;
   };
 
@@ -51,33 +44,33 @@ export default function DiseaseResultScreen({ route, navigation }) {
         savedAt: new Date().toLocaleString(),
       };
 
-      const existing = await AsyncStorage.getItem("disease_history");
+      const existing = await AsyncStorage.getItem('disease_history');
       const history = existing ? JSON.parse(existing) : [];
 
       history.unshift(newItem);
 
-      await AsyncStorage.setItem("disease_history", JSON.stringify(history));
+      await AsyncStorage.setItem('disease_history', JSON.stringify(history));
 
-      if (Platform.OS === "web" && image?.startsWith("blob:")) {
+      if (Platform.OS === 'web' && image?.startsWith('blob:')) {
         Alert.alert(
-          "Saved",
-          "The result was saved. Image preview may not be available later on web for temporary uploaded images."
+          'Saved',
+          'The result was saved. Image preview may not be available later on web for temporary uploaded images.',
         );
       }
 
-      navigation.navigate("DiseaseHistory");
+      navigation.navigate('DiseaseHistory');
     } catch (error) {
-      console.warn("Save error:", error);
-      Alert.alert("Error", "Failed to save result.");
+      console.warn('Save error:', error);
+      Alert.alert('Error', 'Failed to save result.');
     }
   };
 
   const handleHistory = () => {
-    navigation.navigate("DiseaseHistory");
+    navigation.navigate('DiseaseHistory');
   };
 
   const handleDetectAnother = () => {
-    navigation.navigate("DiseaseUpload");
+    navigation.navigate('DiseaseUpload');
   };
 
   return (
@@ -86,10 +79,7 @@ export default function DiseaseResultScreen({ route, navigation }) {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <LinearGradient
-        colors={["#1a3409", "#2d5016", "#1a3409"]}
-        style={styles.header}
-      >
+      <LinearGradient colors={['#1a3409', '#2d5016', '#1a3409']} style={styles.header}>
         <Text style={styles.badge}>AI Analysis Complete</Text>
         <Text style={styles.title}>Detection Result</Text>
         <Text style={styles.headerSubtitle}>
@@ -113,33 +103,28 @@ export default function DiseaseResultScreen({ route, navigation }) {
           <View style={styles.warningCard}>
             <Text style={styles.warningTitle}>⚠ Low Confidence Detection</Text>
             <Text style={styles.warningText}>
-              This result may indicate an early or mild infection. Capture a clearer
-              close-up image in good lighting for more accurate detection and monitor
-              the plant condition.
+              This result may indicate an early or mild infection. Capture a clearer close-up image
+              in good lighting for more accurate detection and monitor the plant condition.
             </Text>
           </View>
         )}
 
         <View style={styles.resultCard}>
           <Text style={styles.cardHeading}>Detected Disease</Text>
-          <Text style={styles.resultValue}>{disease || "Unknown"}</Text>
+          <Text style={styles.resultValue}>{disease || 'Unknown'}</Text>
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>Confidence</Text>
-            <Text style={styles.valueHighlight}>{confidence || "N/A"}</Text>
+            <Text style={styles.valueHighlight}>{confidence || 'N/A'}</Text>
           </View>
 
           <View style={styles.divider} />
 
           <Text style={styles.labelBlock}>Description</Text>
-          <Text style={styles.valueBlock}>
-            {description || "No description available."}
-          </Text>
+          <Text style={styles.valueBlock}>{description || 'No description available.'}</Text>
 
           <Text style={styles.labelBlock}>Treatment Recommendation</Text>
-          <Text style={styles.valueBlock}>
-            {treatment || "Consult an agricultural expert."}
-          </Text>
+          <Text style={styles.valueBlock}>{treatment || 'Consult an agricultural expert.'}</Text>
         </View>
 
         {probabilities && Object.keys(probabilities).length > 0 && (
@@ -155,12 +140,7 @@ export default function DiseaseResultScreen({ route, navigation }) {
           </View>
         )}
 
-        <View
-          style={[
-            styles.buttonGroup,
-            isWideScreen && styles.buttonGroupWide,
-          ]}
-        >
+        <View style={[styles.buttonGroup, isWideScreen && styles.buttonGroupWide]}>
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveButtonText}>💾 Save Result</Text>
           </TouchableOpacity>
@@ -170,10 +150,7 @@ export default function DiseaseResultScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.detectAgainButton}
-          onPress={handleDetectAnother}
-        >
+        <TouchableOpacity style={styles.detectAgainButton} onPress={handleDetectAnother}>
           <Text style={styles.detectAgainText}>🔄 Detect Another Leaf</Text>
         </TouchableOpacity>
       </View>
@@ -184,7 +161,7 @@ export default function DiseaseResultScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f7faf7",
+    backgroundColor: '#f7faf7',
   },
 
   scrollContent: {
@@ -195,52 +172,52 @@ const styles = StyleSheet.create({
     paddingTop: isSmallScreen ? 42 : 60,
     paddingBottom: isSmallScreen ? 24 : 30,
     paddingHorizontal: 20,
-    alignItems: "center",
+    alignItems: 'center',
   },
 
   badge: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    color: "#fff",
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: '#fff',
     fontSize: isSmallScreen ? 10 : 12,
-    fontWeight: "700",
+    fontWeight: '700',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     marginBottom: 12,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
 
   title: {
-    color: "#fff",
+    color: '#fff',
     fontSize: isSmallScreen ? 24 : 28,
-    fontWeight: "800",
-    textAlign: "center",
+    fontWeight: '800',
+    textAlign: 'center',
     marginBottom: 8,
   },
 
   headerSubtitle: {
-    color: "rgba(255,255,255,0.9)",
+    color: 'rgba(255,255,255,0.9)',
     fontSize: isSmallScreen ? 13 : 15,
-    textAlign: "center",
+    textAlign: 'center',
     lineHeight: 22,
     maxWidth: 760,
   },
 
   content: {
     padding: isSmallScreen ? 14 : 20,
-    width: "100%",
+    width: '100%',
     maxWidth: 900,
-    alignSelf: "center",
+    alignSelf: 'center',
   },
 
   imageCard: {
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 18,
-    overflow: "hidden",
+    overflow: 'hidden',
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: "#dceccf",
-    shadowColor: "#000",
+    borderColor: '#dceccf',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -248,16 +225,16 @@ const styles = StyleSheet.create({
   },
 
   image: {
-    width: "100%",
+    width: '100%',
     height: isSmallScreen ? 220 : isWideScreen ? 380 : 280,
-    resizeMode: "cover",
+    resizeMode: 'cover',
   },
 
   imagePlaceholder: {
     height: 220,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#eef3ea",
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eef3ea',
   },
 
   imagePlaceholderIcon: {
@@ -267,12 +244,12 @@ const styles = StyleSheet.create({
 
   imagePlaceholderText: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
   },
 
   warningCard: {
-    backgroundColor: "#fff3cd",
-    borderColor: "#ffe08a",
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffe08a',
     borderWidth: 1,
     padding: 16,
     borderRadius: 16,
@@ -281,164 +258,164 @@ const styles = StyleSheet.create({
 
   warningTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#856404",
+    fontWeight: '700',
+    color: '#856404',
     marginBottom: 6,
   },
 
   warningText: {
     fontSize: 14,
-    color: "#856404",
+    color: '#856404',
     lineHeight: 20,
   },
 
   resultCard: {
-    backgroundColor: "#f1f8e9",
+    backgroundColor: '#f1f8e9',
     padding: isSmallScreen ? 16 : 20,
     borderRadius: 18,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: "#dceccf",
+    borderColor: '#dceccf',
   },
 
   cardHeading: {
     fontSize: isSmallScreen ? 18 : 20,
-    fontWeight: "700",
-    color: "#2d5016",
+    fontWeight: '700',
+    color: '#2d5016',
     marginBottom: 10,
   },
 
   resultValue: {
     fontSize: isSmallScreen ? 22 : 26,
-    fontWeight: "800",
-    color: "#4caf50",
+    fontWeight: '800',
+    color: '#4caf50',
     marginBottom: 14,
   },
 
   infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 
   label: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#2d5016",
+    fontWeight: '600',
+    color: '#2d5016',
   },
 
   valueHighlight: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#1f3d0f",
+    fontWeight: '700',
+    color: '#1f3d0f',
   },
 
   divider: {
     height: 1,
-    backgroundColor: "#d7e6cf",
+    backgroundColor: '#d7e6cf',
     marginVertical: 14,
   },
 
   labelBlock: {
     fontSize: 15,
-    fontWeight: "700",
-    color: "#2d5016",
+    fontWeight: '700',
+    color: '#2d5016',
     marginTop: 8,
     marginBottom: 6,
   },
 
   valueBlock: {
     fontSize: 14,
-    color: "#444",
+    color: '#444',
     lineHeight: 21,
   },
 
   probCard: {
-    backgroundColor: "#ffffff",
+    backgroundColor: '#ffffff',
     borderRadius: 18,
     padding: isSmallScreen ? 16 : 20,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: "#dceccf",
+    borderColor: '#dceccf',
   },
 
   probRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#eef3ea",
+    borderBottomColor: '#eef3ea',
   },
 
   probDisease: {
     fontSize: 15,
-    color: "#333",
+    color: '#333',
     flex: 1,
     paddingRight: 10,
   },
 
   probValue: {
     fontSize: 15,
-    fontWeight: "700",
-    color: "#2d5016",
+    fontWeight: '700',
+    color: '#2d5016',
   },
 
   buttonGroup: {
     gap: 12,
-    flexDirection: "column",
+    flexDirection: 'column',
     marginBottom: 14,
   },
 
   buttonGroupWide: {
-    flexDirection: "row",
+    flexDirection: 'row',
   },
 
   saveButton: {
     flex: 1,
-    backgroundColor: "#2d5016",
+    backgroundColor: '#2d5016',
     paddingVertical: 16,
     borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   saveButtonText: {
-    color: "#fff",
-    fontWeight: "700",
+    color: '#fff',
+    fontWeight: '700',
     fontSize: 16,
   },
 
   historyButton: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderWidth: 1.5,
-    borderColor: "#b9d3b0",
+    borderColor: '#b9d3b0',
     paddingVertical: 16,
     borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   historyButtonText: {
-    color: "#2d5016",
-    fontWeight: "700",
+    color: '#2d5016',
+    fontWeight: '700',
     fontSize: 16,
   },
 
   detectAgainButton: {
-    backgroundColor: "#eef5eb",
+    backgroundColor: '#eef5eb',
     borderWidth: 1,
-    borderColor: "#dceccf",
+    borderColor: '#dceccf',
     paddingVertical: 14,
     borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   detectAgainText: {
-    color: "#2d5016",
-    fontWeight: "700",
+    color: '#2d5016',
+    fontWeight: '700',
     fontSize: 15,
   },
 });

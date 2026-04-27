@@ -1,8 +1,12 @@
 // src/components/ui.js  — Reusable Professional Components
 import React from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { C, SHADOW, T } from './theme';
@@ -18,22 +22,36 @@ export function FormField({ label, error, helper, required, children }) {
         </View>
       )}
       <View style={[f.inputBox, error && f.inputBoxErr]}>{children}</View>
-      {error  && <View style={f.msgRow}><Ionicons name="alert-circle" size={13} color={C.error} /><Text style={f.errMsg}>{error}</Text></View>}
+      {error && (
+        <View style={f.msgRow}>
+          <Ionicons name="alert-circle" size={13} color={C.error} />
+          <Text style={f.errMsg}>{error}</Text>
+        </View>
+      )}
       {!error && helper && <Text style={f.helper}>{helper}</Text>}
     </View>
   );
 }
 
 const f = StyleSheet.create({
-  wrap:        { marginBottom: 16 },
-  labelRow:    { flexDirection:'row', marginBottom:6 },
-  label:       { fontSize:13, fontWeight:'700', color:C.label },
-  req:         { fontSize:13, fontWeight:'700', color:C.error },
-  inputBox:    { flexDirection:'row', alignItems:'center', backgroundColor:C.white, borderRadius:12, borderWidth:1.5, borderColor:C.border, paddingHorizontal:14, minHeight:50 },
-  inputBoxErr: { borderColor:C.error+'88', backgroundColor:'#fff5f5' },
-  msgRow:      { flexDirection:'row', alignItems:'center', gap:5, marginTop:5 },
-  errMsg:      { fontSize:12, color:C.error, flex:1 },
-  helper:      { fontSize:11, color:C.text3, marginTop:5 },
+  wrap: { marginBottom: 16 },
+  labelRow: { flexDirection: 'row', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '700', color: C.label },
+  req: { fontSize: 13, fontWeight: '700', color: C.error },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.white,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    paddingHorizontal: 14,
+    minHeight: 50,
+  },
+  inputBoxErr: { borderColor: C.error + '88', backgroundColor: '#fff5f5' },
+  msgRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+  errMsg: { fontSize: 12, color: C.error, flex: 1 },
+  helper: { fontSize: 11, color: C.text3, marginTop: 5 },
 });
 
 // ── StyledInput ───────────────────────────────────────────────────────────────
@@ -41,40 +59,37 @@ export function StyledInput({ iconName, error, rightElement, style, ...props }) 
   return (
     <>
       {iconName && (
-        <View style={{ marginRight:10 }}>
+        <View style={{ marginRight: 10 }}>
           <Ionicons name={iconName} size={18} color={error ? C.error : C.hint} />
         </View>
       )}
-      <TextInput
-        style={[inp.input, style]}
-        placeholderTextColor={C.hint}
-        {...props}
-      />
+      <TextInput style={[inp.input, style]} placeholderTextColor={C.hint} {...props} />
       {rightElement}
     </>
   );
 }
 const inp = StyleSheet.create({
-  input: { flex:1, fontSize:15, color:C.text, paddingVertical:0 },
+  input: { flex: 1, fontSize: 15, color: C.text, paddingVertical: 0 },
 });
 
 // ── PrimaryButton ──────────────────────────────────────────────────────────
 export function PrimaryButton({ title, onPress, loading, disabled, icon, style }) {
   return (
     <TouchableOpacity
-      style={[b.btn, (disabled||loading) && b.btnOff, style]}
+      style={[b.btn, (disabled || loading) && b.btnOff, style]}
       onPress={onPress}
-      disabled={disabled||loading}
+      disabled={disabled || loading}
       activeOpacity={0.85}
       accessibilityRole="button"
     >
-      {loading
-        ? <ActivityIndicator color={C.white} size="small" />
-        : <View style={b.inner}>
-            {icon && <Ionicons name={icon} size={18} color={C.white} />}
-            <Text style={b.txt}>{title}</Text>
-          </View>
-      }
+      {loading ? (
+        <ActivityIndicator color={C.white} size="small" />
+      ) : (
+        <View style={b.inner}>
+          {icon && <Ionicons name={icon} size={18} color={C.white} />}
+          <Text style={b.txt}>{title}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -98,12 +113,26 @@ export function OutlineButton({ title, onPress, disabled, icon, style }) {
 }
 
 const b = StyleSheet.create({
-  btn:    { backgroundColor:C.primary, borderRadius:14, paddingVertical:15, alignItems:'center', justifyContent:'center', ...SHADOW.sm },
-  out:    { borderWidth:1.5, borderColor:C.primary, borderRadius:14, paddingVertical:14, alignItems:'center', justifyContent:'center' },
-  btnOff: { opacity:0.55 },
-  inner:  { flexDirection:'row', alignItems:'center', gap:8 },
-  txt:    { color:C.white,   fontSize:15, fontWeight:'800' },
-  outTxt: { color:C.primary, fontSize:15, fontWeight:'700' },
+  btn: {
+    backgroundColor: C.primary,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW.sm,
+  },
+  out: {
+    borderWidth: 1.5,
+    borderColor: C.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnOff: { opacity: 0.55 },
+  inner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  txt: { color: C.white, fontSize: 15, fontWeight: '800' },
+  outTxt: { color: C.primary, fontSize: 15, fontWeight: '700' },
 });
 
 // ── Card ─────────────────────────────────────────────────────────────────────
@@ -111,7 +140,14 @@ export function Card({ children, style }) {
   return <View style={[cd.card, style]}>{children}</View>;
 }
 const cd = StyleSheet.create({
-  card: { backgroundColor:C.white, borderRadius:20, padding:20, borderWidth:1, borderColor:C.border, ...SHADOW.sm },
+  card: {
+    backgroundColor: C.white,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...SHADOW.sm,
+  },
 });
 
 // ── SectionHeader ─────────────────────────────────────────────────────────
@@ -124,24 +160,32 @@ export function SectionHeader({ title, subtitle }) {
   );
 }
 const sh = StyleSheet.create({
-  wrap:  { marginBottom:14 },
-  title: { fontSize:17, fontWeight:'800', color:C.text, marginBottom:3 },
-  sub:   { fontSize:12, color:C.text3, lineHeight:17 },
+  wrap: { marginBottom: 14 },
+  title: { fontSize: 17, fontWeight: '800', color: C.text, marginBottom: 3 },
+  sub: { fontSize: 12, color: C.text3, lineHeight: 17 },
 });
 
 // ── StatusBadge ───────────────────────────────────────────────────────────
 export function StatusBadge({ label, color, bg }) {
   return (
-    <View style={[sb.wrap, { backgroundColor: bg || color+'18', borderColor: color+'33' }]}>
-      <View style={[sb.dot, { backgroundColor:color }]} />
+    <View style={[sb.wrap, { backgroundColor: bg || color + '18', borderColor: color + '33' }]}>
+      <View style={[sb.dot, { backgroundColor: color }]} />
       <Text style={[sb.txt, { color }]}>{label}</Text>
     </View>
   );
 }
 const sb = StyleSheet.create({
-  wrap: { flexDirection:'row', alignItems:'center', gap:5, paddingHorizontal:10, paddingVertical:4, borderRadius:99, borderWidth:1 },
-  dot:  { width:5, height:5, borderRadius:3 },
-  txt:  { fontSize:11, fontWeight:'700' },
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 99,
+    borderWidth: 1,
+  },
+  dot: { width: 5, height: 5, borderRadius: 3 },
+  txt: { fontSize: 11, fontWeight: '700' },
 });
 
 // ── EmptyState ────────────────────────────────────────────────────────────
@@ -155,10 +199,10 @@ export function EmptyState({ emoji, title, subtitle }) {
   );
 }
 const es = StyleSheet.create({
-  wrap:  { alignItems:'center', paddingVertical:48, paddingHorizontal:24 },
-  emoji: { fontSize:56, marginBottom:16, opacity:0.5 },
-  title: { fontSize:18, fontWeight:'700', color:C.text2, marginBottom:8, textAlign:'center' },
-  sub:   { fontSize:13, color:C.text3, textAlign:'center', lineHeight:19, maxWidth:280 },
+  wrap: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24 },
+  emoji: { fontSize: 56, marginBottom: 16, opacity: 0.5 },
+  title: { fontSize: 18, fontWeight: '700', color: C.text2, marginBottom: 8, textAlign: 'center' },
+  sub: { fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 19, maxWidth: 280 },
 });
 
 // ── ErrorBanner ───────────────────────────────────────────────────────────
@@ -176,8 +220,18 @@ export function ErrorBanner({ message, onRetry }) {
   );
 }
 const eb = StyleSheet.create({
-  wrap: { flexDirection:'row', alignItems:'center', gap:10, backgroundColor:'#FFF5F5', borderRadius:12, padding:14, borderWidth:1, borderColor:C.error+'33', margin:16 },
-  msg:  { flex:1, fontSize:13, color:C.error, lineHeight:18 },
-  btn:  { backgroundColor:C.error, borderRadius:8, paddingHorizontal:12, paddingVertical:6 },
-  btnTxt:{ color:C.white, fontSize:12, fontWeight:'700' },
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: C.error + '33',
+    margin: 16,
+  },
+  msg: { flex: 1, fontSize: 13, color: C.error, lineHeight: 18 },
+  btn: { backgroundColor: C.error, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  btnTxt: { color: C.white, fontSize: 12, fontWeight: '700' },
 });

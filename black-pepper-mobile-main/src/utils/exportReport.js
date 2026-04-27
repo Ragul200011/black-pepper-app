@@ -10,27 +10,39 @@ import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let Print, Sharing;
-try { Print   = require('expo-print');   } catch {}
-try { Sharing = require('expo-sharing'); } catch {}
+try {
+  Print = require('expo-print');
+} catch {}
+try {
+  Sharing = require('expo-sharing');
+} catch {}
 
 // ─── Build HTML report ───────────────────────────────────────────────────────
 function buildHTML({ disease, variety, generatedAt }) {
-  const diseaseRows = disease.map(s => `
+  const diseaseRows = disease
+    .map(
+      (s) => `
     <tr>
       <td>${s.timestamp ?? '—'}</td>
       <td style="color:${s.disease?.includes('healthy') ? '#2E7D32' : '#C62828'}; font-weight:700">
         ${s.disease ?? s.result ?? '—'}
       </td>
       <td>${s.confidence ?? '—'}%</td>
-    </tr>`).join('');
+    </tr>`,
+    )
+    .join('');
 
-  const varietyRows = variety.map(s => `
+  const varietyRows = variety
+    .map(
+      (s) => `
     <tr>
       <td>${s.timestamp ?? '—'}</td>
       <td style="font-weight:700">${s.result ?? '—'}</td>
       <td>${s.confidence ?? '—'}%</td>
       <td>${s.stage ?? '—'}</td>
-    </tr>`).join('');
+    </tr>`,
+    )
+    .join('');
 
   return `<!DOCTYPE html>
 <html>
@@ -63,18 +75,20 @@ function buildHTML({ disease, variety, generatedAt }) {
   </div>
 
   <h2>🔬 Disease Detection Results</h2>
-  ${disease.length === 0
-    ? '<p style="color:#888">No disease scans recorded.</p>'
-    : `<table>
+  ${
+    disease.length === 0
+      ? '<p style="color:#888">No disease scans recorded.</p>'
+      : `<table>
         <thead><tr><th>Date / Time</th><th>Detection Result</th><th>Confidence</th></tr></thead>
         <tbody>${diseaseRows}</tbody>
        </table>`
   }
 
   <h2>🫑 Variety Identification Results</h2>
-  ${variety.length === 0
-    ? '<p style="color:#888">No variety scans recorded.</p>'
-    : `<table>
+  ${
+    variety.length === 0
+      ? '<p style="color:#888">No variety scans recorded.</p>'
+      : `<table>
         <thead><tr><th>Date / Time</th><th>Identified Variety</th><th>Confidence</th><th>Stage</th></tr></thead>
         <tbody>${varietyRows}</tbody>
        </table>`
@@ -93,7 +107,7 @@ export async function exportScanReport() {
     Alert.alert(
       'Export Not Available',
       'Install expo-print and expo-sharing to enable report export:\n\nnpx expo install expo-print expo-sharing',
-      [{ text: 'OK' }]
+      [{ text: 'OK' }],
     );
     return;
   }
@@ -111,15 +125,15 @@ export async function exportScanReport() {
       return;
     }
 
-    const html        = buildHTML({ disease, variety, generatedAt: new Date().toLocaleString() });
-    const { uri }     = await Print.printToFileAsync({ html, base64: false });
-    const canShare    = await Sharing.isAvailableAsync();
+    const html = buildHTML({ disease, variety, generatedAt: new Date().toLocaleString() });
+    const { uri } = await Print.printToFileAsync({ html, base64: false });
+    const canShare = await Sharing.isAvailableAsync();
 
     if (canShare) {
       await Sharing.shareAsync(uri, {
-        mimeType:  'application/pdf',
+        mimeType: 'application/pdf',
         dialogTitle: 'Share Scan Report',
-        UTI:       'com.adobe.pdf',
+        UTI: 'com.adobe.pdf',
       });
     } else {
       Alert.alert('Report Saved', `PDF saved to:\n${uri}`);
@@ -142,8 +156,8 @@ export async function printScanReport() {
       AsyncStorage.getItem('scanHistory'),
     ]);
     const html = buildHTML({
-      disease:     dRaw ? JSON.parse(dRaw) : [],
-      variety:     vRaw ? JSON.parse(vRaw) : [],
+      disease: dRaw ? JSON.parse(dRaw) : [],
+      variety: vRaw ? JSON.parse(vRaw) : [],
       generatedAt: new Date().toLocaleString(),
     });
     await Print.printAsync({ html });

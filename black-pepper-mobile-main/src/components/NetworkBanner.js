@@ -13,21 +13,28 @@ import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 let NetInfo;
-try { NetInfo = require('@react-native-community/netinfo').default; }
-catch { NetInfo = null; }
+try {
+  NetInfo = require('@react-native-community/netinfo').default;
+} catch {
+  NetInfo = null;
+}
 
 export default function NetworkBanner() {
-  const [status,   setStatus]   = useState('unknown'); // unknown | online | offline
+  const [status, setStatus] = useState('unknown'); // unknown | online | offline
   const slideAnim = useRef(new Animated.Value(-60)).current;
-
-  const show = () => Animated.spring(slideAnim, { toValue: 0,   useNativeDriver: true, tension: 80 }).start();
-  const hide = () => Animated.timing(slideAnim,  { toValue: -60, useNativeDriver: true, duration: 300 }).start();
+  const prevStatus = useRef('unknown');
 
   useEffect(() => {
     if (!NetInfo) return;
 
     let backOnlineTimer;
-    const unsub = NetInfo.addEventListener(state => {
+
+    const show = () =>
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 80 }).start();
+    const hide = () =>
+      Animated.timing(slideAnim, { toValue: -60, useNativeDriver: true, duration: 300 }).start();
+
+    const unsub = NetInfo.addEventListener((state) => {
       const connected = state.isConnected && state.isInternetReachable !== false;
 
       if (!connected) {
@@ -35,7 +42,7 @@ export default function NetworkBanner() {
         setStatus('offline');
         show();
       } else {
-        if (status === 'offline') {
+        if (prevStatus.current === 'offline') {
           setStatus('online');
           show();
           backOnlineTimer = setTimeout(() => hide(), 2500);
@@ -43,10 +50,17 @@ export default function NetworkBanner() {
           setStatus('online');
         }
       }
+
+      prevStatus.current = connected ? 'online' : 'offline';
     });
 
-    return () => { unsub(); clearTimeout(backOnlineTimer); };
-  }, [status]);
+    return () => {
+      unsub();
+      clearTimeout(backOnlineTimer);
+    };
+    // slideAnim is stable (ref) and we intentionally handle status via a ref
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (status === 'unknown') return null;
 
@@ -54,7 +68,11 @@ export default function NetworkBanner() {
 
   return (
     <Animated.View
-      style={[s.banner, isOffline ? s.offline : s.online, { transform: [{ translateY: slideAnim }] }]}
+      style={[
+        s.banner,
+        isOffline ? s.offline : s.online,
+        { transform: [{ translateY: slideAnim }] },
+      ]}
       pointerEvents="none"
     >
       <Ionicons
@@ -64,17 +82,26 @@ export default function NetworkBanner() {
         style={{ marginRight: 6 }}
       />
       <Text style={s.txt}>
-        {isOffline
-          ? 'No internet connection — some features unavailable'
-          : '✓ Back online'}
+        {isOffline ? 'No internet connection — some features unavailable' : '✓ Back online'}
       </Text>
     </Animated.View>
   );
 }
 
 const s = StyleSheet.create({
-  banner:  { position:'absolute', top:0, left:0, right:0, zIndex:9999, flexDirection:'row', alignItems:'center', justifyContent:'center', paddingVertical:10, paddingHorizontal:16 },
-  offline: { backgroundColor:'#C62828' },
-  online:  { backgroundColor:'#2E7D32' },
-  txt:     { color:'#fff', fontSize:12, fontWeight:'700' },
+  banner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  offline: { backgroundColor: '#C62828' },
+  online: { backgroundColor: '#2E7D32' },
+  txt: { color: '#fff', fontSize: 12, fontWeight: '700' },
 });
