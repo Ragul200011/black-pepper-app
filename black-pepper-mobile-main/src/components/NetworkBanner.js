@@ -9,7 +9,7 @@
 //  USAGE: Add <NetworkBanner /> inside App.js (inside Provider)
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 let NetInfo;

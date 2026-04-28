@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { C, SHADOW, T } from './theme';
+import { C, SHADOW } from './theme';
 
 // ── FormField ────────────────────────────────────────────────────────────────
 export function FormField({ label, error, helper, required, children }) {

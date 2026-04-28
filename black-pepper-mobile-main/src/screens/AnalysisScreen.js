@@ -9,23 +9,17 @@
 //  • Farm comparison table
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { C, SHADOW } from '../components/theme';
 
-const { width: W } = Dimensions.get('window');
 
 const DISEASE_COLORS = { healthy: '#2E7D32', leaf_blight: '#C62828', slow_wilt: '#E65100' };
 const VARIETY_COLORS = { Butawerala: '#2E7D32', Dingirala: '#1565C0', Kohukuburerala: '#6A1B9A' };
-const FARMS = [
-  'SLIIT Research Plot',
-  'Engineering Faculty Field',
-  'Campus Garden',
-  'South Research Farm',
-];
+// FARMS constant removed (unused) — sample farm lists are in the UI where needed
 
 function isThisWeek(dateStr) {
   const d = new Date(dateStr);

@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - MOCK_PREDICTIONS=true
+    volumes:
+      - ./backend/uploads:/app/uploads
+    restart: unless-stopped

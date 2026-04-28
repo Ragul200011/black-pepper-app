@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Marker } from 'react-native-maps';
 
-const { width } = Dimensions.get('window');
+// width removed (unused)
 
 // Dummy Geospatial Data around Jaffna, Sri Lanka
 const MOCK_PINS = [

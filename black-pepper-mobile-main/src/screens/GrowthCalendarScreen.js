@@ -7,7 +7,7 @@
 //  • Add/delete events, persisted in AsyncStorage
 //  Install: npx expo install react-native-calendars
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,

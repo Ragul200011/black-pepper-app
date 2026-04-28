@@ -13,6 +13,7 @@ const path                = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 5001;
+const MOCK_PREDICTIONS = (process.env.MOCK_PREDICTIONS === 'true' || process.env.MOCK_PREDICTIONS === '1' || process.env.MOCK === 'true');
 
 // ── Detect Python once at startup ─────────────────────────────────────────────
 let PYTHON_CMD = 'python3';
@@ -217,6 +218,25 @@ app.post('/api/predict-image',
   (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No image. Use field name 'file'." });
     const imgPath = req.file.path;
+    // Mock mode: return a deterministic demo response without invoking Python
+    if (MOCK_PREDICTIONS) {
+      deleteFile(imgPath);
+      const mock = {
+        rejected: false,
+        low_confidence: false,
+        reject_reason: null,
+        prediction: 'Healthy',
+        confidence: 98.5,
+        raw_detector_score: 99.0,
+        pepper_score: 99.0,
+        all_probabilities: { Healthy: 98.5, 'Leaf Blight': 1.0, 'Slow Wilt': 0.5 },
+        model_name: 'mock-effnet',
+        description: 'Mock prediction (MOCK_PREDICTIONS enabled).',
+        advice: 'Provide model files in backend/models for real predictions.',
+      };
+      return res.json({ success: true, image_name: req.file.filename, ai_analysis: mock });
+    }
+
     runPython([path.join(__dirname, 'predict_image.py'), imgPath], (result, err) => {
       deleteFile(imgPath);
       if (err) return res.status(500).json({ error: 'Image prediction failed', details: err });
@@ -229,6 +249,18 @@ app.post('/api/predict-image',
 app.post('/api/variety-predict', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
   const imgPath = req.file.path;
+  if (MOCK_PREDICTIONS) {
+    deleteFile(imgPath);
+    const mock = {
+      accepted: true,
+      stageA: { label: 'pepper_leaf', confidence: 99.9 },
+      prediction: { label: 'Butawerala', confidence: 95.0 },
+      probabilities: { Butawerala: 95.0, Dingirala: 3.0, Kohukuburerala: 2.0 },
+      message: 'ok',
+    };
+    return res.json(mock);
+  }
+
   runPython([path.join(__dirname, 'predict_variety.py'), imgPath], (result, err) => {
     deleteFile(imgPath);
     if (err) return res.status(500).json({ error: 'Variety prediction failed', details: err });

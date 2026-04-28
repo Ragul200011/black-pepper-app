@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,10 +17,9 @@ import { WEATHER_URL } from '../config/api';
 import { C, SHADOW } from '../components/theme';
 import BottomNav from '../components/BottomNav';
 
-const { width } = Dimensions.get('window');
 
 // Only import MapView on native (avoids web crash)
-let MapView, Marker, Callout, Circle;
+let MapView, Marker, Callout;
 if (Platform.OS !== 'web') {
   const maps = require('react-native-maps');
   MapView = maps.default;
@@ -29,8 +27,6 @@ if (Platform.OS !== 'web') {
   Callout = maps.Callout;
   Circle = maps.Circle;
 }
-
-const GOOGLE_PLACES_KEY = 'YOUR_GOOGLE_PLACES_API_KEY'; // replace with real key
 
 const FARMS = [
   {
@@ -128,7 +124,7 @@ export default function DashboardScreen({ navigation }) {
   const [weather, setWeather] = useState(null);
   const [weatherLoad, setWeatherLoad] = useState(true);
   const [selectedFarm, setSelectedFarm] = useState(null);
-  const [userLoc, setUserLoc] = useState(null);
+  const [, setUserLoc] = useState(null);
   const [locStatus, setLocStatus] = useState('loading');
   const mapRef = useRef(null);
   const mounted = useRef(true);
